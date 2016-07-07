@@ -166,6 +166,15 @@ public final class Block extends ExpressionStatement implements Scope {
     }
   }
 
+  //To have the list of reference at the function call for WhyML translation
+  public LinkedList<LocalReference> returnOnlyReference(IrTreeVisitAndGenerate visitor) {
+    LinkedList<LocalReference> refList = new LinkedList<>();
+    for (LocalReference ref : referenceTable.ownedReferences()) {
+      refList.addLast(ref);
+    }
+    return refList;
+  }
+
   @Override
   protected void replaceElement(GoloElement original, GoloElement newElement) {
     if (statements.contains(original) && newElement instanceof GoloStatement) {

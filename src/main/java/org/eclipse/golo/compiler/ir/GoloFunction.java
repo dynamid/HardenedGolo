@@ -34,6 +34,7 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
   private final List<String> parameterNames = new LinkedList<>();
   private final List<String> syntheticParameterNames = new LinkedList<>();
   private boolean varargs = false;
+  private String specification;
   private Block block;
   private boolean synthetic = false;
   private boolean decorator = false;
@@ -175,6 +176,22 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
       this.block.addStatement(missingReturnStatement);
     }
   }
+
+
+  // specification --------------------------------------------------------------------------------
+  public GoloFunction withSpecification (String spec) {
+    String specif = "";
+    if(spec != null){
+      specif+=spec;
+    }
+    this.specification = specif;
+    return this;
+  }
+
+  public String getSpecification() {
+    return this.specification;
+  }
+
 
   // parameters and varargs -----------------------------------------------------------------------
   public GoloFunction varargs(boolean isVarargs) {
@@ -339,6 +356,11 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
       deco.accept(visitor);
     }
     block.accept(visitor);
+  }
+
+  //To have the list of reference at the function call for WhyML translation
+  public LinkedList<LocalReference> returnOnlyReference(IrTreeVisitAndGenerate visitor) {
+    return block.returnOnlyReference(visitor);
   }
 
   @Override

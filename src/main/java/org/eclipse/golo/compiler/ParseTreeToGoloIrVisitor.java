@@ -320,7 +320,8 @@ public class ParseTreeToGoloIrVisitor implements GoloParserVisitor {
     GoloFunction function = context.getOrCreateFunction()
       .ofAST(node)
       .varargs(node.isVarargs())
-      .withParameters(node.getParameters());
+      .withParameters(node.getParameters())
+      .withSpecification(node.getSpecification());
 
     if (node.isCompactForm()) {
       // TODO: refactor

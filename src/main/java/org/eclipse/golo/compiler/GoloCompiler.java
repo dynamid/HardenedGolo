@@ -10,6 +10,7 @@
 package org.eclipse.golo.compiler;
 
 import org.eclipse.golo.compiler.ir.GoloModule;
+import org.eclipse.golo.compiler.ir.IrTreeVisitAndGenerate;
 import org.eclipse.golo.compiler.parser.ASTCompilationUnit;
 import org.eclipse.golo.compiler.parser.GoloOffsetParser;
 import org.eclipse.golo.compiler.parser.GoloParser;
@@ -18,6 +19,7 @@ import org.eclipse.golo.compiler.parser.ParseException;
 import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.UnsupportedCharsetException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.jar.JarOutputStream;
@@ -223,6 +225,46 @@ public class GoloCompiler {
       goloModule.accept(new LocalReferenceAssignmentAndVerificationVisitor(exceptionBuilder));
     }
     throwIfErrorEncountered();
+  }
+
+
+
+  public int[] countCharsPerLine (String absolutePath) throws IOException {
+    ArrayList<Integer> myList = new ArrayList<>();
+    BufferedReader br =  new BufferedReader(new InputStreamReader(new FileInputStream(absolutePath), Charset.forName("UTF-8")));
+    //BufferedReader br = new BufferedReader(new FileReader(absolutePath));
+    String line = br.readLine();
+    while (line != null) {
+      myList.add(line.length() + 1);
+      line = br.readLine();
+    }
+    br.close();
+    int[] myArray = new int[myList.size()];
+    for (int i =0; i<myList.size(); i++){
+      myArray[i]=myList.get(i);
+    }
+    return myArray;
+  }
+
+  /**
+   * Checks that the source code is minimally sound by converting a parse tree to an intermediate representation, and
+   * running a few classic visitors over it. Then generate WhyML code for verification.
+   *
+   * @param compilationUnit the source parse tree.
+   * @param destFile the destination WhyML file.
+   * @return the intermediate representation of the source.
+   * @throws GoloCompilationException if an error exists in the source represented by the input parse tree.
+   */
+  public final GoloModule verify(ASTCompilationUnit compilationUnit, String absolutePath, String destFile) throws IOException{
+    GoloModule goloModule = check(compilationUnit);
+    int[] charsPerLine = countCharsPerLine(absolutePath);
+    if (destFile == null) {
+      destFile = "result.mlw";
+    } else if (destFile.isEmpty()) {
+      destFile = "result.mlw";
+    }
+    goloModule.accept(new IrTreeVisitAndGenerate(absolutePath, charsPerLine, destFile));
+    return goloModule;
   }
 
 

@@ -93,7 +93,7 @@ public class GoloParser {
     public String toString() {
       return "FunctionRef{module=" + module
                           + ",name=" + name
-                          + ",arity=" + arity 
+                          + ",arity=" + arity
                           + (varargs ? ",varargs" : "")
                           + "}";
     }
@@ -210,6 +210,25 @@ TOKEN :
 TOKEN :
 {
  < DECORATOR: "@" >
+}
+
+// Specification
+
+MORE :
+{
+  < "spec/"  > : WithinSpec
+}
+
+<WithinSpec>
+TOKEN :
+{
+  < SPEC : "/spec"  > : DEFAULT
+}
+
+<WithinSpec>
+MORE :
+{
+  < ~[] >
 }
 
 // References
@@ -1297,14 +1316,27 @@ void Block(): {}
   }
 }
 
+String Specification() #void:
+{
+  Token specToken;
+}
+{
+  specToken = <SPEC>
+  {
+    return specToken.image.substring(5, specToken.image.length() - 5).trim();
+  }
+}
+
 void Function():
 {
   List<String> parameters = null;
+  String specification = null;
   Token varargsToken = null;
   boolean compactForm = false;
 }
 {
   ("|" parameters=Parameters() (varargsToken="...")? "|")?
+  (specification=Specification())?
   (
     Block()
     |
@@ -1320,6 +1352,9 @@ void Function():
     jjtThis.setCompactForm(compactForm);
     jjtThis.setParameters(parameters);
     jjtThis.setVarargs(varargsToken != null);
+    if (specification != null) {
+      jjtThis.setSpecification(specification);
+    }
   }
 }
 
