@@ -1,0 +1,15 @@
+module TestMax
+
+	use import int.Int
+	
+	type int32
+
+    let test_max (a: int)(b: int)
+		ensures {(result >= a) /\ (result >= b) /\ (forall z:int. z >= a /\ z >= b -> z >= result)}
+	=   if a >= b then a else b
+
+	let test()
+	=   let at = 1 in
+		let bt = 2 in
+		test_max at bt
+end

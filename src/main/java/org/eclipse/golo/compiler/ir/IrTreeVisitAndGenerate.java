@@ -40,6 +40,10 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
   private ArrayList<functionNameArity> functionsDefined = new ArrayList<>();
   private ArrayList<functionNameArity> functionsCalled = new ArrayList<>();
 
+  /// If true, the verification has to consider integers with 32 bits
+  private boolean int32;
+  private String usedInt="int";
+
   /// Indentation management
   private int spacing = 0;
   private final int INDENTATION_WIDTH =4;
@@ -51,7 +55,23 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     this.sourcePath=sourcePath;
     this.charsPerLine=Arrays.copyOf(charsPerLine, charsPerLine.length);
     this.destFile=destFile;
+    int32=true;
+    usedInt="int32";
   }
+
+  public IrTreeVisitAndGenerate (String sourcePath, int[] charsPerLine, String destFile, boolean int32){
+    super();
+    this.sourcePath=sourcePath;
+    this.charsPerLine=Arrays.copyOf(charsPerLine, charsPerLine.length);
+    this.destFile=destFile;
+    this.int32=int32;
+    if(int32) {
+      usedInt="int32";
+    } else {
+      usedInt="int";
+    }
+  }
+
 
 
   //================= <Sub class functionNameArity> =================
@@ -102,11 +122,22 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
 
 
+
+
+
+
+
   //================= </Sub class Context> =================
   private static final class Context {
     private final Deque<ReferenceTable> referenceTableStack = new LinkedList<>();
   }
   //================= </Sub class Context> =================
+
+
+
+
+
+
 
 
 
@@ -135,6 +166,10 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     whyMLcode.set(whyMLcode.size()-1,whyMLcode.get(whyMLcode.size()-1) + toAppend);
   }
   //================= </Code generation methods> =================
+
+
+
+
 
 
 
@@ -196,11 +231,15 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     whyMLcode.add("module " + moduleName);
     whyMLcode.add(getSourceCodeModuleLines(module));
     incr();
-    whyMLcode.add(space() + "use import mach.int.Int");//temporary import
+    if(int32) {
+      whyMLcode.add(space() + "use import mach.int.Int32");//temporary import
+    } else {
+      whyMLcode.add(space() + "use import mach.int.Int");//temporary import
+    }
     whyMLcode.add(space() + "use import ref.Ref"); //temporary import
-    whyMLcode.add(space() + "use import mach.int.Int"); //temporary import
-    whyMLcode.add(space() + "function int : int");
-    whyMLcode.add(space() + "constant null : int"); //temporary null type creation
+    // whyMLcode.add(space() + "use import mach.int.Int"); //temporary import Seems useless
+    whyMLcode.add(space() + "function "+usedInt+" : "+usedInt);
+    whyMLcode.add(space() + "constant null : "+usedInt); //temporary null type creation
     whyMLcode.add(space() + "exception Return ()"); // temporary exception declaration
     decr();
     module.walk(this);
@@ -325,10 +364,10 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
         }
       }
       if(!isParam && !ref.isConstant()){
-        whyMLcode.add(space() + "let " + ref.getName() + " = ref int in ");
+        whyMLcode.add(space() + "let " + ref.getName() + " = ref "+usedInt+" in ");
       }
     }
-    whyMLcode.add(space() + "let return = ref int in try begin");
+    whyMLcode.add(space() + "let return = ref "+usedInt+" in try begin");
     decr();
     function.walk(this);
     incr();
@@ -371,7 +410,17 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
   public void visitConstantStatement(ConstantStatement constantStatement) {
     // System.out.print(" (* Constant = *) ");
     incr();
-    whyMLcode.add(space() + "( " + constantStatement.getValue() + " ) ");
+    if(int32 && constantStatement.getValue() instanceof Integer) {
+      // In case of 32bits literal integer, we have to call the of_int function on the absolute value of the constant.
+      int v = ((Integer) constantStatement.getValue()).intValue();
+      if(v<0) {
+        whyMLcode.add(space() + "(  - ( of_int " + (-v) + " )) ");
+      } else {
+        whyMLcode.add(space() + "(  of_int " + v + " ) ");
+      }
+    } else {
+      whyMLcode.add(space() + "( " + constantStatement.getValue() + " ) ");
+    }
     decr();
   }
 

@@ -1,0 +1,634 @@
+theory Jessie_model
+
+use import int.Int
+
+use bool.Bool
+
+use import jessie3theories.Jessie_memory_model
+
+type _Object
+
+type byte
+
+type char
+
+type int32
+
+type interface
+
+type long
+
+type short
+
+function _Exception_tag  : (tag_id _Object)
+
+function _Object_tag  : (tag_id _Object)
+
+axiom _Exception_parenttag_Object "Exception_parenttag_Object":
+ (parenttag _Exception_tag _Object_tag)
+
+function _MaxFunc_tag  : (tag_id _Object)
+
+axiom _MaxFunc_parenttag_Object "MaxFunc_parenttag_Object":
+ (parenttag _MaxFunc_tag _Object_tag)
+
+predicate _Non_null_Object(x_0:(pointer _Object)) (_Object_alloc_table:(alloc_table _Object)) =
+ (Int.(>=) (offset_max _Object_alloc_table x_0) (0))
+
+axiom _Object_int "Object_int": ((int_of_tag _Object_tag) = (1))
+
+function _Object_of_pointer_address (pointer ()) : (pointer _Object)
+
+axiom _Object_of_pointer_address_of_pointer_addr "Object_of_pointer_address_of_pointer_addr":
+ (forall p:(pointer _Object).
+  (p = (_Object_of_pointer_address (pointer_address p))))
+
+axiom _Object_parenttag_bottom "Object_parenttag_bottom":
+ (parenttag _Object_tag bottom_tag)
+
+axiom _Object_tags "Object_tags":
+ (forall x:(pointer _Object).
+  (forall _Object_tag_table:(tag_table _Object).
+   (instanceof _Object_tag_table x _Object_tag)))
+
+function _String_tag  : (tag_id _Object)
+
+axiom _String_parenttag_Object "String_parenttag_Object":
+ (parenttag _String_tag _Object_tag)
+
+function _Throwable_tag  : (tag_id _Object)
+
+axiom _Throwable_parenttag_Object "Throwable_parenttag_Object":
+ (parenttag _Throwable_tag _Object_tag)
+
+function integer_of_byte byte : int
+
+function byte_of_integer int : byte
+
+axiom byte_coerce "byte_coerce":
+ (forall x:int.
+  (((Int.(<=) (-128) x) /\ (Int.(<=) x (127))) ->
+   ((integer_of_byte (byte_of_integer x)) = x)))
+
+axiom byte_extensionality "byte_extensionality":
+ (forall x:byte.
+  (forall y:byte[((integer_of_byte x) = (integer_of_byte y))].
+   (((integer_of_byte x) = (integer_of_byte y)) -> (x = y))))
+
+axiom byte_range "byte_range":
+ (forall x:byte.
+  ((Int.(<=) (-128) (integer_of_byte x))
+  /\ (Int.(<=) (integer_of_byte x) (127))))
+
+function integer_of_char char : int
+
+function char_of_integer int : char
+
+axiom char_coerce "char_coerce":
+ (forall x:int.
+  (((Int.(<=) (0) x) /\ (Int.(<=) x (65535))) ->
+   ((integer_of_char (char_of_integer x)) = x)))
+
+axiom char_extensionality "char_extensionality":
+ (forall x:char.
+  (forall y:char[((integer_of_char x) = (integer_of_char y))].
+   (((integer_of_char x) = (integer_of_char y)) -> (x = y))))
+
+axiom char_range "char_range":
+ (forall x:char.
+  ((Int.(<=) (0) (integer_of_char x))
+  /\ (Int.(<=) (integer_of_char x) (65535))))
+
+predicate eq_byte(x:byte) (y:byte) =
+ ((integer_of_byte x) = (integer_of_byte y))
+
+predicate eq_char(x:char) (y:char) =
+ ((integer_of_char x) = (integer_of_char y))
+
+function integer_of_int32 int32 : int
+
+predicate eq_int32(x:int32) (y:int32) =
+ ((integer_of_int32 x) = (integer_of_int32 y))
+
+function integer_of_long long : int
+
+predicate eq_long(x:long) (y:long) =
+ ((integer_of_long x) = (integer_of_long y))
+
+function integer_of_short short : int
+
+predicate eq_short(x:short) (y:short) =
+ ((integer_of_short x) = (integer_of_short y))
+
+function int32_of_integer int : int32
+
+axiom int32_coerce "int32_coerce":
+ (forall x:int.
+  (((Int.(<=) (-2147483648) x) /\ (Int.(<=) x (2147483647))) ->
+   ((integer_of_int32 (int32_of_integer x)) = x)))
+
+axiom int32_extensionality "int32_extensionality":
+ (forall x:int32.
+  (forall y:int32[((integer_of_int32 x) = (integer_of_int32 y))].
+   (((integer_of_int32 x) = (integer_of_int32 y)) -> (x = y))))
+
+axiom int32_range "int32_range":
+ (forall x:int32.
+  ((Int.(<=) (-2147483648) (integer_of_int32 x))
+  /\ (Int.(<=) (integer_of_int32 x) (2147483647))))
+
+function interface_tag  : (tag_id interface)
+
+axiom interface_int "interface_int": ((int_of_tag interface_tag) = (1))
+
+function interface_of_pointer_address (pointer ()) : (pointer interface)
+
+axiom interface_of_pointer_address_of_pointer_addr "interface_of_pointer_address_of_pointer_addr":
+ (forall p:(pointer interface).
+  (p = (interface_of_pointer_address (pointer_address p))))
+
+axiom interface_parenttag_bottom "interface_parenttag_bottom":
+ (parenttag interface_tag bottom_tag)
+
+axiom interface_tags "interface_tags":
+ (forall x:(pointer interface).
+  (forall interface_tag_table:(tag_table interface).
+   (instanceof interface_tag_table x interface_tag)))
+
+predicate left_valid_struct_Object(p:(pointer _Object)) (a:int) (_Object_alloc_table:(alloc_table _Object)) =
+ ((offset_min _Object_alloc_table p) <= a)
+
+predicate left_valid_struct_Exception(p:(pointer _Object)) (a:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (left_valid_struct_Object p a _Object_alloc_table)
+
+predicate left_valid_struct_MaxFunc(p:(pointer _Object)) (a:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (left_valid_struct_Object p a _Object_alloc_table)
+
+predicate left_valid_struct_String(p:(pointer _Object)) (a:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (left_valid_struct_Object p a _Object_alloc_table)
+
+predicate left_valid_struct_Throwable(p:(pointer _Object)) (a:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (left_valid_struct_Object p a _Object_alloc_table)
+
+predicate left_valid_struct_interface(p:(pointer interface)) (a:int) (interface_alloc_table:(alloc_table interface)) =
+ ((offset_min interface_alloc_table p) <= a)
+
+function long_of_integer int : long
+
+axiom long_coerce "long_coerce":
+ (forall x:int.
+  (((Int.(<=) (-9223372036854775808) x)
+   /\ (Int.(<=) x (9223372036854775807))) ->
+   ((integer_of_long (long_of_integer x)) = x)))
+
+axiom long_extensionality "long_extensionality":
+ (forall x:long.
+  (forall y:long[((integer_of_long x) = (integer_of_long y))].
+   (((integer_of_long x) = (integer_of_long y)) -> (x = y))))
+
+axiom long_range "long_range":
+ (forall x:long.
+  ((Int.(<=) (-9223372036854775808) (integer_of_long x))
+  /\ (Int.(<=) (integer_of_long x) (9223372036854775807))))
+
+axiom pointer_addr_of_Object_of_pointer_address "pointer_addr_of_Object_of_pointer_address":
+ (forall p:(pointer ()).
+  (p = (pointer_address (_Object_of_pointer_address p))))
+
+axiom pointer_addr_of_interface_of_pointer_address "pointer_addr_of_interface_of_pointer_address":
+ (forall p:(pointer ()).
+  (p = (pointer_address (interface_of_pointer_address p))))
+
+predicate right_valid_struct_Object(p:(pointer _Object)) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ ((offset_max _Object_alloc_table p) >= b)
+
+predicate right_valid_struct_Exception(p:(pointer _Object)) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (right_valid_struct_Object p b _Object_alloc_table)
+
+predicate right_valid_struct_MaxFunc(p:(pointer _Object)) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (right_valid_struct_Object p b _Object_alloc_table)
+
+predicate right_valid_struct_String(p:(pointer _Object)) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (right_valid_struct_Object p b _Object_alloc_table)
+
+predicate right_valid_struct_Throwable(p:(pointer _Object)) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (right_valid_struct_Object p b _Object_alloc_table)
+
+predicate right_valid_struct_interface(p:(pointer interface)) (b:int) (interface_alloc_table:(alloc_table interface)) =
+ ((offset_max interface_alloc_table p) >= b)
+
+function short_of_integer int : short
+
+axiom short_coerce "short_coerce":
+ (forall x:int.
+  (((Int.(<=) (-32768) x) /\ (Int.(<=) x (32767))) ->
+   ((integer_of_short (short_of_integer x)) = x)))
+
+axiom short_extensionality "short_extensionality":
+ (forall x:short.
+  (forall y:short[((integer_of_short x) = (integer_of_short y))].
+   (((integer_of_short x) = (integer_of_short y)) -> (x = y))))
+
+axiom short_range "short_range":
+ (forall x:short.
+  ((Int.(<=) (-32768) (integer_of_short x))
+  /\ (Int.(<=) (integer_of_short x) (32767))))
+
+predicate strict_valid_root_Object(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (((offset_min _Object_alloc_table p) = a)
+ /\ ((offset_max _Object_alloc_table p) = b))
+
+predicate strict_valid_root_interface(p:(pointer interface)) (a:int) (b:int) (interface_alloc_table:(alloc_table interface)) =
+ (((offset_min interface_alloc_table p) = a)
+ /\ ((offset_max interface_alloc_table p) = b))
+
+predicate strict_valid_struct_Object(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (((offset_min _Object_alloc_table p) = a)
+ /\ ((offset_max _Object_alloc_table p) = b))
+
+predicate strict_valid_struct_Exception(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (strict_valid_struct_Object p a b _Object_alloc_table)
+
+predicate strict_valid_struct_MaxFunc(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (strict_valid_struct_Object p a b _Object_alloc_table)
+
+predicate strict_valid_struct_String(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (strict_valid_struct_Object p a b _Object_alloc_table)
+
+predicate strict_valid_struct_Throwable(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (strict_valid_struct_Object p a b _Object_alloc_table)
+
+predicate strict_valid_struct_interface(p:(pointer interface)) (a:int) (b:int) (interface_alloc_table:(alloc_table interface)) =
+ (((offset_min interface_alloc_table p) = a)
+ /\ ((offset_max interface_alloc_table p) = b))
+
+predicate valid_root_Object(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (((offset_min _Object_alloc_table p) <= a)
+ /\ ((offset_max _Object_alloc_table p) >= b))
+
+predicate valid_root_interface(p:(pointer interface)) (a:int) (b:int) (interface_alloc_table:(alloc_table interface)) =
+ (((offset_min interface_alloc_table p) <= a)
+ /\ ((offset_max interface_alloc_table p) >= b))
+
+predicate valid_struct_Object(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (((offset_min _Object_alloc_table p) <= a)
+ /\ ((offset_max _Object_alloc_table p) >= b))
+
+predicate valid_struct_Exception(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (valid_struct_Object p a b _Object_alloc_table)
+
+predicate valid_struct_MaxFunc(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (valid_struct_Object p a b _Object_alloc_table)
+
+predicate valid_struct_String(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (valid_struct_Object p a b _Object_alloc_table)
+
+predicate valid_struct_Throwable(p:(pointer _Object)) (a:int) (b:int) (_Object_alloc_table:(alloc_table _Object)) =
+ (valid_struct_Object p a b _Object_alloc_table)
+
+predicate valid_struct_interface(p:(pointer interface)) (a:int) (b:int) (interface_alloc_table:(alloc_table interface)) =
+ (((offset_min interface_alloc_table p) <= a)
+ /\ ((offset_max interface_alloc_table p) >= b))
+
+end
+
+module Jessie_program
+
+use import int.Int
+
+use bool.Bool
+
+use import jessie3theories.Jessie_memory_model
+
+use import Jessie_model
+
+use import ref.Ref
+
+use import jessie3.JessieDivision
+
+use import jessie3.Jessie_memory_model_parameters
+
+use import jessie3_integer.Integer
+
+exception Exception_exc (pointer _Object)
+
+exception Loop_continue_exc ()
+
+exception Loop_exit_exc ()
+
+val _Object_alloc_table : ref (alloc_table _Object)
+
+val _Object_tag_table : ref (tag_table _Object)
+
+exception Return_label_exc ()
+
+exception Throwable_exc (pointer _Object)
+
+val alloc_struct_Exception
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { true } writes { _Object_alloc_table, _Object_tag_table }
+     ensures { ((strict_valid_struct_Exception result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _Exception_tag)))) }
+
+val alloc_struct_Exception_requires
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { (Int.(>=) n (0)) } writes { _Object_alloc_table,
+    _Object_tag_table }
+     ensures { ((strict_valid_struct_Exception result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _Exception_tag)))) }
+
+val alloc_struct_MaxFunc
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { true } writes { _Object_alloc_table, _Object_tag_table }
+     ensures { ((strict_valid_struct_MaxFunc result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _MaxFunc_tag)))) }
+
+val alloc_struct_MaxFunc_requires
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { (Int.(>=) n (0)) } writes { _Object_alloc_table,
+    _Object_tag_table }
+     ensures { ((strict_valid_struct_MaxFunc result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _MaxFunc_tag)))) }
+
+val alloc_struct_Object
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { true } writes { _Object_alloc_table, _Object_tag_table }
+     ensures { ((strict_valid_struct_Object result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _Object_tag)))) }
+
+val alloc_struct_Object_requires
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { (Int.(>=) n (0)) } writes { _Object_alloc_table,
+    _Object_tag_table }
+     ensures { ((strict_valid_struct_Object result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _Object_tag)))) }
+
+val alloc_struct_String
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { true } writes { _Object_alloc_table, _Object_tag_table }
+     ensures { ((strict_valid_struct_String result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _String_tag)))) }
+
+val alloc_struct_String_requires
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { (Int.(>=) n (0)) } writes { _Object_alloc_table,
+    _Object_tag_table }
+     ensures { ((strict_valid_struct_String result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _String_tag)))) }
+
+val alloc_struct_Throwable
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { true } writes { _Object_alloc_table, _Object_tag_table }
+     ensures { ((strict_valid_struct_Throwable result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _Throwable_tag)))) }
+
+val alloc_struct_Throwable_requires
+ (n:int)
+  (_Object_alloc_table:ref (alloc_table _Object))
+   (_Object_tag_table:ref (tag_table _Object)) : (pointer _Object)
+    requires { (Int.(>=) n (0)) } writes { _Object_alloc_table,
+    _Object_tag_table }
+     ensures { ((strict_valid_struct_Throwable result (0) (Int.(-) n (1))
+                !_Object_alloc_table)
+               /\ ((alloc_extends (old !_Object_alloc_table)
+                   !_Object_alloc_table)
+                  /\ ((alloc_fresh (old !_Object_alloc_table) result n)
+                     /\ (instanceof !_Object_tag_table result _Throwable_tag)))) }
+
+val interface_alloc_table : ref (alloc_table interface)
+
+val interface_tag_table : ref (tag_table interface)
+
+val alloc_struct_interface
+ (n:int)
+  (interface_alloc_table:ref (alloc_table interface))
+   (interface_tag_table:ref (tag_table interface)) : (pointer interface)
+    requires { true } writes { interface_alloc_table, interface_tag_table }
+     ensures { ((strict_valid_struct_interface result (0) (Int.(-) n (1))
+                !interface_alloc_table)
+               /\ ((alloc_extends (old !interface_alloc_table)
+                   !interface_alloc_table)
+                  /\ ((alloc_fresh (old !interface_alloc_table) result n)
+                     /\ (instanceof !interface_tag_table result
+                        interface_tag)))) }
+
+val alloc_struct_interface_requires
+ (n:int)
+  (interface_alloc_table:ref (alloc_table interface))
+   (interface_tag_table:ref (tag_table interface)) : (pointer interface)
+    requires { (Int.(>=) n (0)) } writes { interface_alloc_table,
+    interface_tag_table }
+     ensures { ((strict_valid_struct_interface result (0) (Int.(-) n (1))
+                !interface_alloc_table)
+               /\ ((alloc_extends (old !interface_alloc_table)
+                   !interface_alloc_table)
+                  /\ ((alloc_fresh (old !interface_alloc_table) result n)
+                     /\ (instanceof !interface_tag_table result
+                        interface_tag)))) }
+
+val any_byte (_anonymous:()) : byte requires { true }  ensures { true }
+
+val any_char (_anonymous:()) : char requires { true }  ensures { true }
+
+val any_int32 (_anonymous:()) : int32 requires { true }  ensures { true }
+
+val any_long (_anonymous:()) : long requires { true }  ensures { true }
+
+val any_short (_anonymous:()) : short requires { true }  ensures { true }
+
+val any_string_0
+ (tt:()) : (pointer _Object) requires { true }  ensures { true }
+
+val any_string_0_requires
+ (tt:()) : (pointer _Object)
+  requires { true }
+   ensures { true }
+
+val byte_of_integer_
+ (x:int) : byte
+  requires { ((Int.(<=) (-128) x) /\ (Int.(<=) x (127))) }
+   ensures { ((integer_of_byte result) = x) }
+
+val char_of_integer_
+ (x:int) : char
+  requires { ((Int.(<=) (0) x) /\ (Int.(<=) x (65535))) }
+   ensures { ((integer_of_char result) = x) }
+
+val cons_MaxFunc
+ (this_0:(pointer _Object)) : ()
+  requires { true } reads { _Object_alloc_table }   ensures { true }
+
+val cons_MaxFunc_requires
+ (this_0:(pointer _Object)) : ()
+  requires { true }
+  reads { _Object_alloc_table }   ensures { true }
+
+val int32_of_integer_
+ (x:int) : int32
+  requires { ((Int.(<=) (-2147483648) x) /\ (Int.(<=) x (2147483647))) }
+   ensures { ((integer_of_int32 result) = x) }
+
+val long_of_integer_
+ (x:int) : long
+  requires { ((Int.(<=) (-9223372036854775808) x)
+             /\ (Int.(<=) x (9223372036854775807))) }
+   ensures { ((integer_of_long result) = x) }
+
+val non_null_Object
+ (x_1:(pointer _Object)) : Bool.bool
+  requires { true } reads { _Object_alloc_table } 
+   ensures { (
+             (if result = True
+              then ((offset_max !_Object_alloc_table x_1) = (0))
+              else (x_1 = null))) }
+
+val non_null_Object_requires
+ (x_1:(pointer _Object)) : Bool.bool
+  requires { true }
+  reads { _Object_alloc_table } 
+   ensures { (
+             (if result = True
+              then ((offset_max !_Object_alloc_table x_1) = (0))
+              else (x_1 = null))) }
+
+val safe_byte_of_integer_
+ (x:int) : byte requires { true }  ensures { ((integer_of_byte result) = x) }
+
+val safe_char_of_integer_
+ (x:int) : char requires { true }  ensures { ((integer_of_char result) = x) }
+
+val safe_int32_of_integer_
+ (x:int) : int32
+  requires { true }  ensures { ((integer_of_int32 result) = x) }
+
+val safe_long_of_integer_
+ (x:int) : long requires { true }  ensures { ((integer_of_long result) = x) }
+
+val safe_short_of_integer_
+ (x:int) : short
+  requires { true }  ensures { ((integer_of_short result) = x) }
+
+val short_of_integer_
+ (x:int) : short
+  requires { ((Int.(<=) (-32768) x) /\ (Int.(<=) x (32767))) }
+   ensures { ((integer_of_short result) = x) }
+
+
+
+
+
+let _MaxFunc_max_ensures_default "W:diverges:N" "expl:Method max, default behavior"
+ = fun (x_2 : int32) (y : int32) ->
+  requires { true  }
+  ensures { (
+             (Int.(>=) (integer_of_int32 result) (integer_of_int32 x_2))
+            /\ ((Int.(>=) (integer_of_int32 result) (integer_of_int32 y))
+               /\ (forall z:int.
+                   (((Int.(>=) z (integer_of_int32 x_2))
+                    /\ (Int.(>=) z (integer_of_int32 y))) ->
+                    (Int.(>=) z (integer_of_int32 result)))))) }(let return = ref (any_int32 ()) in
+                                                                  try
+                                                                   begin
+                                                                    (if (Int.(>) (integer_of_int32 x_2) 
+																		(integer_of_int32 y))
+                                                                    then
+                                                                     begin
+                                                                       (return := x_2); (raise Return)
+                                                                      end
+                                                                    else
+                                                                     begin
+                                                                       (return := y); (raise Return)
+                                                                     end);
+                                                                    absurd end with Return -> !return end)
+ 
+
+let _MaxFunc_max_safety "expl:Method max, Safety"
+ =
+ fun (x_2 : int32) (y : int32) ->
+  requires { true } ensures { true }(let return = ref (any_int32 ()) in
+                                      try
+                                       begin
+                                         (if (Int.(>) (integer_of_int32 x_2) (integer_of_int32 y))
+                                         then
+                                          begin
+                                            (return := x_2) (*return := int32_of_integer_ 5*); (raise Return)
+                                          end
+                                         else
+                                          begin
+                                            (return := y); (raise Return) end);
+                                        absurd  end with Return -> !return end) 
+
+
+
+
+
+
+let cons_MaxFunc_ensures_default "W:diverges:N" "expl:Constructor of class MaxFunc, default behavior"
+ =
+ fun (this_0 : (pointer _Object)) ->
+  requires { (valid_struct_MaxFunc this_0 (0) (0) !_Object_alloc_table)  }
+  ensures { true }(try begin   (); (raise Return) end with Return -> () end) 
+
+let cons_MaxFunc_safety "expl:Constructor of class MaxFunc, Safety"
+ =
+ fun (this_0 : (pointer _Object)) ->
+  requires { (valid_struct_MaxFunc this_0 (0) (0) !_Object_alloc_table)  }
+  ensures { true }(try begin   (); (raise Return) end with Return -> () end) 
+
+end
+
+
