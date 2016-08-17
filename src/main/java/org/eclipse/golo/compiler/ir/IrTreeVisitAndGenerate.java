@@ -11,16 +11,27 @@ package org.eclipse.golo.compiler.ir;
 
 import org.eclipse.golo.runtime.OperatorType;
 
-import java.io.*;
+import java.util.List;
+import java.util.LinkedList;
 import java.util.ArrayList;
-import java.util.*;
-import java.nio.file.*;
+import java.util.Arrays;
+import java.util.Deque;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.nio.charset.Charset;
 
 
+/**
+ * <p>This Visitor aims at verifying the correctness of the golo program.
+ * It generates a .mlw file containing some verification conditions.
+ * Such kind of file is next usable through WHY3 tool.</p>
+ *
+ * <p>This Visitor is a 1-pass. It generates WhyML file while parsing the IR.</p>
+ * @author Raphael Laurent
+ */
 public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
-  private int spacing = 0;
   private Context context;
   private String sourcePath;
   private String destFile;
@@ -29,6 +40,12 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
   private ArrayList<functionNameArity> functionsDefined = new ArrayList<>();
   private ArrayList<functionNameArity> functionsCalled = new ArrayList<>();
 
+  /// Indentation management
+  private int spacing = 0;
+  private final int INDENTATION_WIDTH =4;
+
+
+
   public IrTreeVisitAndGenerate (String sourcePath, int[] charsPerLine, String destFile){
     super();
     this.sourcePath=sourcePath;
@@ -36,6 +53,8 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     this.destFile=destFile;
   }
 
+
+  //================= <Sub class functionNameArity> =================
   private static class functionNameArity {
     private String name;
     private int arity;
@@ -67,25 +86,33 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
       return positionInSourceCode.getColumn();
     }
 
-    /* Check if function has same name, and greater or same arity than param */
+    /** Check if function has same name, and greater or same arity than param */
     private boolean isSimilar(functionNameArity fndefined){
-      boolean isEqual = false;
-      if(fndefined != null){
-        if(fndefined.getName().equals(this.name) && fndefined.getArity() <= this.arity)
-          isEqual = true;
-      }
-      return isEqual;
+      return fndefined != null &&
+             fndefined.getName().equals(this.name) &&
+             fndefined.getArity() <= this.arity;
     }
 
     public String toString (){
       return name+arity;
     }
   }
+  //================= </Sub class functionNameArity> =================
 
+
+
+
+  //================= </Sub class Context> =================
   private static final class Context {
     private final Deque<ReferenceTable> referenceTableStack = new LinkedList<>();
   }
+  //================= </Sub class Context> =================
 
+
+
+
+  //================= <Code generation methods> =================
+  /** Return an indentation prefix String (containing spaces according to the depth level of the current code) */
   private String space() {
     StringBuilder buf = new StringBuilder();
     for (int i = 0; i < spacing; i++) {
@@ -94,17 +121,24 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     return buf.toString();
   }
 
+  /** Augment the indentation level into the produced code. */
   private void incr() {
-    spacing = spacing + 2;
+    spacing = spacing + INDENTATION_WIDTH;
   }
 
+  /** Reduce the indentation level into the produced code. */
   private void decr() {
-    spacing = spacing - 2;
+    spacing = spacing - INDENTATION_WIDTH;
   }
 
   private void appendWhyMLLastString(String toAppend){
     whyMLcode.set(whyMLcode.size()-1,whyMLcode.get(whyMLcode.size()-1) + toAppend);
   }
+  //================= </Code generation methods> =================
+
+
+
+
 
   private String getSourceCodeBlocksLines(GoloElement element){
     String str="";
@@ -441,6 +475,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
       conditionalBranching.getFalseBlock().accept(this);
       whyMLcode.add(space() + ") end");
     } else if (conditionalBranching.hasElseConditionalBranching()) {
+      // TODO : Probably missing recursive consideration.
       whyMLcode.add(space() + "else if begin (");
       conditionalBranching.getElseConditionalBranching().accept(this);
       whyMLcode.add(space() + ") end");
@@ -493,7 +528,8 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
   public void visitBinaryOperation(BinaryOperation binaryOperation) {
     incr();
     // space(); System.out.println("(* Binary operator: *)");
-    //TODO support all operators OperatorType
+    //TODO : support all operators OperatorType
+    //TODO : Moving constants out of the method
     List<OperatorType> supportedOperators = new ArrayList<>();
     supportedOperators.addAll(Arrays.asList(OperatorType.AND,
       OperatorType.PLUS,
