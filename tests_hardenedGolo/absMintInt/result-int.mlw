@@ -1,0 +1,61 @@
+module TestMinInt
+    #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 15 0 597#
+    use import mach.int.Int
+    use import ref.Ref
+    function int : int
+    constant null : int
+    exception Return ()
+    let myAbs #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 19 21 354# =
+        fun ( x ) ->
+            requires{
+                                  x>= -2147483647
+                              }
+                              ensures{
+                               (result >= 0) /\
+                               (result = x \/ result = -x)}
+            let return = ref int in try
+                begin (
+                    #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 25 27 84#
+                    if ( ( < ) x 0 )
+                    then
+                        begin (
+                            #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 26 11 32#
+                            (return := ( ( - ) 0 x ));
+                            (raise Return)
+                        ) end
+                    else
+                        begin (
+                            #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 28 8 23#
+                            (return := x);
+                            (raise Return)
+                        ) end;
+                ) end
+            ;
+            with Return -> !return end
+    let princ #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 33 17 111# =
+        fun () ->
+
+            let return = ref int in try
+                begin (
+                    #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 33 17 111#
+                    let a =
+                        myAbs (-2147483647) in
+                    (return := a);
+                    (raise Return)
+                ) end
+            ;
+            with Return -> !return end
+    let main #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 40 16 62# =
+        fun ( args ) ->
+
+            let return = ref int in try
+                begin (
+                    #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt.golo" 40 23 62#
+                    let a =
+                        princ () in
+                    (return := null);
+                    (raise Return)
+                ) end
+            ;
+            with Return -> !return end
+end

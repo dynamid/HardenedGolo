@@ -255,7 +255,7 @@ public class GoloCompiler {
    * @return the intermediate representation of the source.
    * @throws GoloCompilationException if an error exists in the source represented by the input parse tree.
    */
-  public final GoloModule verify(ASTCompilationUnit compilationUnit, String absolutePath, String destFile) throws IOException{
+  public final GoloModule verify(ASTCompilationUnit compilationUnit, String absolutePath, String destFile, boolean int32) throws IOException{
     GoloModule goloModule = check(compilationUnit);
     int[] charsPerLine = countCharsPerLine(absolutePath);
     if (destFile == null) {
@@ -263,7 +263,7 @@ public class GoloCompiler {
     } else if (destFile.isEmpty()) {
       destFile = "result.mlw";
     }
-    goloModule.accept(new IrTreeVisitAndGenerate(absolutePath, charsPerLine, destFile));
+    goloModule.accept(new IrTreeVisitAndGenerate(absolutePath, charsPerLine, destFile, int32));
     return goloModule;
   }
 

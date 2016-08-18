@@ -31,6 +31,9 @@ public class VerifyCommand implements CliCommand{
   @Parameter(names = {"--verbose"}, description = "Be more verbose")
   boolean verbose = false;
 
+  @Parameter(names = {"--int32"}, description = "Consider bounded integers on 32bits")
+  boolean int32 = false;
+
 
   @Override
   public void execute() throws Throwable {
@@ -54,7 +57,7 @@ public class VerifyCommand implements CliCommand{
           System.out.println(">>> Verifying file `" + file.getAbsolutePath() + "`");
         }
         compiler.resetExceptionBuilder();
-        compiler.verify(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile);
+        compiler.verify(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile, int32);
       } catch (IOException e) {
         System.out.println("[error] " + file + " does not exist or could not be opened.");
       } catch (GoloCompilationException e) {

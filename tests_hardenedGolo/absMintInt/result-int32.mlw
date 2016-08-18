@@ -1,0 +1,48 @@
+module TestMinInt
+    #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt32.golo" 9 0 1003#
+    use import mach.int.Int32
+    use import ref.Ref
+    function int32 : int32
+    constant null : int32
+    exception Return ()
+    let myAbs #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt32.golo" 13 17 386# = 
+        fun ( x ) -> 
+            requires{
+                               to_int x >= -2147483647
+                           }
+                           ensures{
+                               (to_int result >= 0) /\
+                               (to_int result = to_int x \/ to_int result = -(to_int x))}
+            let return = ref int32 in try
+                begin (
+                    #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt32.golo" 19 27 84#
+                    if ( ( < ) x ( of_int 0 )  )
+                    then
+                        begin (
+                            #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt32.golo" 20 11 32#
+                            (return := ( ( - ) ( of_int 0 ) x  ));
+                            (raise Return)
+                        ) end
+                    else
+                        begin (
+                            #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt32.golo" 22 8 23#
+                            (return := x );
+                            (raise Return)
+                        ) end;
+                ) end
+            ;
+            with Return -> !return end
+    let main #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt32.golo" 42 16 85# = 
+        fun ( args ) -> 
+            
+            let return = ref int32 in try
+                begin (
+                    #"/Users/nstouls/Documents/Projets/DynaMid/HardenedGolo/tests_hardenedGolo/absMintInt/absMinInt32.golo" 42 23 85#
+                    let a = 
+                        myAbs ( of_int 42 )  in
+                    (return := null );
+                    (raise Return)
+                ) end
+            ;
+            with Return -> !return end
+end

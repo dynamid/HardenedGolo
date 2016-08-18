@@ -1,5 +1,5 @@
 # Run : ./runWithDistri.sh golo --files absMintInt/absMinInt3.golo
-# Check : ./runWithDistri.sh verify --files absMintInt/absMinInt32.golo
+# Check : ./runWithDistri.sh verify --int32 --files absMintInt/absMinInt32.golo
 #    Println has to be removed to make the check succeed
 #    Result : Production of result.mlw
 #    Check by : why3 ide result.mlw
@@ -8,15 +8,15 @@
 
 module test.MinInt
 
-function myAbs = |x| spec/ ensures{ (to_int result >= 0) } /spec {
+# function myAbs = |x| spec/ ensures{ (to_int result >= 0) } /spec {
 # function myAbs = |x| spec/ ensures{
-# function myAbs = |x| spec/ requires{
-                    #            to_int x >= -2147483647
-                    #        }
-                    #        ensures{
-                    #            (to_int result >= 0) /\
-                    #            (to_int result = to_int x \/ to_int result = -(to_int x))}
-                    #  /spec {
+function myAbs = |x| spec/ requires{
+                               to_int x >= -2147483647
+                           }
+                           ensures{
+                               (to_int result >= 0) /\
+                               (to_int result = to_int x \/ to_int result = -(to_int x))}
+                     /spec {
 	if (x < 0){
 		return (0 - x)
 	} else {
