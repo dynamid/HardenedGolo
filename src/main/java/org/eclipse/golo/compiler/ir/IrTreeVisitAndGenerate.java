@@ -26,37 +26,15 @@ import java.nio.charset.Charset;
     - Remove the ";" at the and of a function, before the "with return".
        ==> needs to check consequences, but this ";" has to be added at the end of each instruction.
        ==> Be careful with blocks that do not add ";" at their end
+
     - Correct the miss of ";" when calling a function without result. A return is generated
 
     - Propose a turnover or a translation for some internal function like println
 
-    - Add a command line parameter to siwtch between Int and Int32 environments.
+    - Add parenthesis to negative values. This is not valid : myAbs -2147483647 ; but this is valid : myAbs (-2147483647)
 
   Solved :
-   - Correct parenthesis problem in nested expressions.
-     Ex :
-                        r/4 - 100*n
-     provides no more :
-                        ( - )
-                            ( / )
-                                ( r )
-                                (  of_int 4 )
-                            ( * )
-                                (  of_int 100 )
-                                ( n )
-     but mor correctly :
 
-                        ( - )
-                            ( ( / )
-                                ( r )
-                                (  of_int 4 ) )
-                            ( ( * )
-                                (  of_int 100 )
-                                ( n ) )
-
-
-   - Correct indentation : incr/decr are now managed by the owner. Each visitor method no more starts with incr()
-   - Add the final ";", at the end of an "if" structure
  */
 
 
@@ -462,7 +440,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     LocalReference reference = referenceLookup.resolveIn(context.referenceTableStack.peek());
     // space(); System.out.println("(* Reference lookup, Constant? " + reference.isConstant() + " *)");
     if (reference.isConstant()) {
-      appendWhyMLLastString(referenceLookup.getName());
+      appendWhyMLLastString(referenceLookup.getName()+" ");
     } else {
       appendWhyMLLastString("(!" + referenceLookup.getName() + ") ");
     }
@@ -481,7 +459,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
         appendWhyMLLastString("( of_int " + v + " ) ");
       }
     } else {
-      appendWhyMLLastString(""+constantStatement.getValue());
+      appendWhyMLLastString(constantStatement.getValue()+" ");
     }
   }
 
