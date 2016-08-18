@@ -8,14 +8,15 @@
 
 module test.MinInt
 
+function myAbs = |x| spec/ ensures{ (to_int result >= 0) } /spec {
 # function myAbs = |x| spec/ ensures{
-function myAbs = |x| spec/ requires{
-                               to_int x >= -2147483647
-                           }
-                           ensures{
-                               (to_int result >= 0) /\
-                               (to_int result = to_int x \/ to_int result = -(to_int x))}
-                     /spec {
+# function myAbs = |x| spec/ requires{
+                    #            to_int x >= -2147483647
+                    #        }
+                    #        ensures{
+                    #            (to_int result >= 0) /\
+                    #            (to_int result = to_int x \/ to_int result = -(to_int x))}
+                    #  /spec {
 	if (x < 0){
 		return (0 - x)
 	} else {
@@ -23,22 +24,23 @@ function myAbs = |x| spec/ requires{
 	}
 }
 
-function princ = {
-    # Exemple avec MinInt
-    #    => Par construction, la constante "-2147483648" génère une 
-    #       erreur dans Why, car on génère -(2147483648), qui n'est 
-    #       pas représentable
-    let x = -2147483647
-    let y = x - 1 
-	let a = myAbs(y)  
-    
-    # Des exemples qui sont corrects
-    #let a = myAbs(-2147483647)
-	#let a = myAbs(3)
-	return (a)
-}
+# function princ = {
+#     # Exemple avec MinInt
+#     #    => Par construction, la constante "-2147483648" génère une
+#     #       erreur dans Why, car on génère -(2147483648), qui n'est
+#     #       pas représentable
+#     let x = -2147483647
+#     let y = x - 1
+# 	let a = myAbs(y)
+#
+#     # Des exemples qui sont corrects
+#     #let a = myAbs(-2147483647)
+# 	#let a = myAbs(3)
+# 	return (a)
+# }
 
 function main = |args| {
-    let a = princ()
+    let a = myAbs(42)
+#    let a = princ()
 #    println(a)
 }

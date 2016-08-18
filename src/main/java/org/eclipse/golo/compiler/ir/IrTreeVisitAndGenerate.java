@@ -23,10 +23,20 @@ import java.nio.charset.Charset;
 
 
 /* TODO List :
-   - Problème de conversion des expression composées.
+    - Remove the ";" at the and of a function, before the "with return".
+       ==> needs to check consequences, but this ";" has to be added at the end of each instruction.
+       ==> Be careful with blocks that do not add ";" at their end
+    - Correct the miss of ";" when calling a function without result. A return is generated
+
+    - Propose a turnover or a translation for some internal function like println
+
+    - Add a command line parameter to siwtch between Int and Int32 environments.
+
+  Solved :
+   - Correct parenthesis problem in nested expressions.
      Ex :
                         r/4 - 100*n
-     provides :
+     provides no more :
                         ( - )
                             ( / )
                                 ( r )
@@ -34,7 +44,7 @@ import java.nio.charset.Charset;
                             ( * )
                                 (  of_int 100 )
                                 ( n )
-     instead of :
+     but mor correctly :
 
                         ( - )
                             ( ( / )
@@ -45,14 +55,8 @@ import java.nio.charset.Charset;
                                 ( n ) )
 
 
-
-   - Il manque peut être un ";" entre séquence if / elsif / elsif et les instructions suivantes
-
-
-
-  Solved :
-   - Correct problem of begin/end while if / elsif / elsif
-   - Remove the erroneous "if" added while elsif
+   - Correct indentation : incr/decr are now managed by the owner. Each visitor method no more starts with incr()
+   - Add the final ";", at the end of an "if" structure
  */
 
 
@@ -76,7 +80,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
   /// If true, the verification has to consider integers with 32 bits
   private boolean int32;
-  private String usedInt="int";
+  private String usedInt;
 
   /// Indentation management
   private int spacing = 0;
@@ -85,12 +89,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
 
   public IrTreeVisitAndGenerate (String sourcePath, int[] charsPerLine, String destFile){
-    super();
-    this.sourcePath=sourcePath;
-    this.charsPerLine=Arrays.copyOf(charsPerLine, charsPerLine.length);
-    this.destFile=destFile;
-    int32=true;
-    usedInt="int32";
+    this(sourcePath, charsPerLine, destFile, false);
   }
 
   public IrTreeVisitAndGenerate (String sourcePath, int[] charsPerLine, String destFile, boolean int32){
@@ -267,8 +266,8 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     String moduleName = module.getPackageAndClass().toString().replaceAll("\\.", "");
     moduleName = moduleName.substring(0, 1).toUpperCase() + moduleName.substring(1);
     whyMLcode.add("module " + moduleName);
-    whyMLcode.add(getSourceCodeModuleLines(module));
     incr();
+    whyMLcode.add(space() + getSourceCodeModuleLines(module));
     if(int32) {
       whyMLcode.add(space() + "use import mach.int.Int32");//temporary import
     } else {
@@ -279,8 +278,8 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     whyMLcode.add(space() + "function "+usedInt+" : "+usedInt);
     whyMLcode.add(space() + "constant null : "+usedInt); //temporary null type creation
     whyMLcode.add(space() + "exception Return ()"); // temporary exception declaration
-    decr();
     module.walk(this);
+    decr();
     whyMLcode.add(space() +"end");
     try {
       Files.write(Paths.get(destFile), whyMLcode, Charset.forName("UTF-8"));
@@ -289,6 +288,443 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     }
     testFunctionsCalledExist();
   }
+
+  @Override
+  public void visitFunction(GoloFunction function) {
+    //System.out.println("Function: "+function.getName());
+    functionsDefined.add(new functionNameArity(function.getName(),function.getArity()));
+    whyMLcode.add(space() + "let " + function.getName() + " ");
+    appendWhyMLLastString(getSourceCodeBlocksLines(function) + " = ");
+    incr();
+    whyMLcode.add(space() + "fun ");
+    visitFunctionDefinition(function);
+    decr();
+  }
+
+
+  private void visitFunctionDefinition(GoloFunction function) {
+    LinkedList<LocalReference> refList = function.returnOnlyReference(this);
+    for (String param : function.getParameterNames()) {
+      appendWhyMLLastString("( " + param + " )");
+    }
+    if (function.getParameterNames().isEmpty()){
+      appendWhyMLLastString("()");
+    }
+    if (function.isVarargs()) {
+      System.out.println("varargs unsupported");
+      appendWhyMLLastString(" (varargs)");
+    }
+    if (function.isSynthetic()) {
+      System.out.println("synthetic unsupported");
+      appendWhyMLLastString(" (synthetic, " + function.getSyntheticParameterCount() + " synthetic parameters)");
+      if (function.getSyntheticSelfName() != null) {
+        appendWhyMLLastString(" (selfname: " + function.getSyntheticSelfName() + ")");
+      }
+    }
+    appendWhyMLLastString(" -> ");
+
+    incr();
+    //Add specification
+    whyMLcode.add(space()+function.getSpecification());
+
+    //Declaration of local variables
+    for (LocalReference ref: refList) {
+      boolean isParam = false;
+      for (String param: function.getParameterNames()){
+        if (ref.getName().equals(param)) {
+          isParam = true;
+        }
+      }
+      if(!isParam && !ref.isConstant()){
+        whyMLcode.add(space() + "let " + ref.getName() + " = ref "+usedInt+" in ");
+      }
+    }
+    whyMLcode.add(space() + "let return = ref "+usedInt+" in try");
+    incr();
+    function.walk(this);
+    decr();
+    whyMLcode.add(space() + ";");
+    whyMLcode.add(space() + "with Return -> !return end");
+    decr();
+  }
+
+  @Override
+  public void visitBlock(Block block) {
+    ReferenceTable referenceTable = block.getReferenceTable();
+    context.referenceTableStack.push(referenceTable);
+    if (block.isEmpty()) { return; }
+    // space(); System.out.println("(* Block *)");
+    whyMLcode.add(space() + "begin (");
+    incr();
+    whyMLcode.add(space() + getSourceCodeBlocksLines(block));
+    block.walk(this);
+    decr();
+    whyMLcode.add(space() + ") end");
+    context.referenceTableStack.pop();
+  }
+
+  @Override
+  public void visitLocalReference(LocalReference ref) {
+    incr();
+    // space(); System.out.println("(* - " + ref + " *)");
+    decr();
+  }
+
+  @Override
+  public void visitReturnStatement(ReturnStatement returnStatement) {
+    whyMLcode.add(space() + "(return := ");
+    returnStatement.walk(this);
+    appendWhyMLLastString(");");
+    whyMLcode.add(space() + "(raise Return)");
+  }
+
+  @Override
+  public void visitFunctionInvocation(FunctionInvocation functionInvocation) {
+    /* space();
+    System.out.println("Function call: " + functionInvocation.getName()
+        + ", on reference? -> " + functionInvocation.isOnReference()
+        + ", on module state? -> " + functionInvocation.isOnModuleState()
+        + ", anonymous? -> " + functionInvocation.isAnonymous()
+        + ", named arguments? -> " + functionInvocation.usesNamedArguments());*/
+    if (!functionInvocation.isOnReference() && !functionInvocation.isOnModuleState()) {
+      functionsCalled.add(new functionNameArity(functionInvocation.getName(),functionInvocation.getArity(), functionInvocation.getPositionInSourceCode()));
+      whyMLcode.add(space() + functionInvocation.getName() + " ");
+    }
+    else {
+      /* ReferenceTable table = context.referenceTableStack.peek();
+      System.out.println(table.get(functionInvocation.getName()));
+      System.out.println(table.hasReferenceFor(functionInvocation.getName()));*/
+
+      // Need to support closures before being able to implement this
+      System.out.println("Function call on reference or module state unsupported");
+      whyMLcode.add("Function call on reference or module state not implemented");
+    }
+    if (functionInvocation.getArity()==0) {
+      appendWhyMLLastString("(");
+    }
+    functionInvocation.walk(this);
+    if (functionInvocation.getArity()==0) {
+      appendWhyMLLastString(")");
+    }
+  }
+
+
+  @Override
+  public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
+    whyMLcode.add(space() + "if ");
+    incr();
+    conditionalBranching.getCondition().accept(this);
+    decr();
+    whyMLcode.add(space() + "then");
+    incr();
+    conditionalBranching.getTrueBlock().accept(this);
+    decr();
+
+    if (conditionalBranching.hasFalseBlock()) {
+      whyMLcode.add(space() + "else");
+      incr();
+      conditionalBranching.getFalseBlock().accept(this);
+      appendWhyMLLastString(";");
+      decr();
+    } else if (conditionalBranching.hasElseConditionalBranching()) {
+      whyMLcode.add(space() + "else");
+      incr();
+      conditionalBranching.getElseConditionalBranching().accept(this);
+      decr();
+    } else {
+      appendWhyMLLastString(";");
+    }
+  }
+
+  @Override
+  public void visitAssignmentStatement(AssignmentStatement assignmentStatement) {
+    String refName = assignmentStatement.getLocalReference().getName();
+    // space(); System.out.println("(* Assignment: " + assignmentStatement.getLocalReference() + " *)");
+    if (assignmentStatement.getLocalReference().isConstant()) {
+      whyMLcode.add(space() + "let " + refName + " = ");
+      incr();
+      assignmentStatement.walk(this);
+      decr();
+      appendWhyMLLastString(" in");
+    } else {
+      whyMLcode.add(space() + "( "  + refName + " := ");
+      incr();
+      assignmentStatement.walk(this);
+      decr();
+      appendWhyMLLastString(" );");
+    }
+  }
+
+
+
+  @Override
+  public void visitReferenceLookup(ReferenceLookup referenceLookup) {
+    LocalReference reference = referenceLookup.resolveIn(context.referenceTableStack.peek());
+    // space(); System.out.println("(* Reference lookup, Constant? " + reference.isConstant() + " *)");
+    if (reference.isConstant()) {
+      appendWhyMLLastString(referenceLookup.getName());
+    } else {
+      appendWhyMLLastString("(!" + referenceLookup.getName() + ") ");
+    }
+  }
+
+
+  @Override
+  public void visitConstantStatement(ConstantStatement constantStatement) {
+    // System.out.print(" (* Constant = *) ");
+    if(int32 && constantStatement.getValue() instanceof Integer) {
+      // In case of 32bits literal integer, we have to call the of_int function on the absolute value of the constant.
+      int v = ((Integer) constantStatement.getValue()).intValue();
+      if(v<0) {
+        appendWhyMLLastString("(  - ( of_int " + (-v) + " )) ");
+      } else {
+        appendWhyMLLastString("( of_int " + v + " ) ");
+      }
+    } else {
+      appendWhyMLLastString(""+constantStatement.getValue());
+    }
+  }
+
+
+
+  @Override
+  public void visitBinaryOperation(BinaryOperation binaryOperation) {
+    // space(); System.out.println("(* Binary operator: *)");
+    //TODO : support all operators OperatorType
+    //TODO : Moving constants out of the method
+    List<OperatorType> supportedOperators = new ArrayList<>();
+    supportedOperators.addAll(Arrays.asList(OperatorType.AND,
+      OperatorType.PLUS,
+      OperatorType.MINUS,
+      OperatorType.TIMES,
+      OperatorType.DIVIDE,
+      OperatorType.MODULO,
+      OperatorType.LESS,
+      OperatorType.LESSOREQUALS,
+      OperatorType.MORE,
+      OperatorType.MOREOREQUALS));
+    if (supportedOperators.contains(binaryOperation.getType())) {
+      appendWhyMLLastString("( ( " + binaryOperation.getType() + " ) ");
+    } else if (binaryOperation.getType() == OperatorType.EQUALS) {
+      appendWhyMLLastString("( ( = ) ");
+    } else if (binaryOperation.getType() == OperatorType.NOTEQUALS) {
+      appendWhyMLLastString("( ( <> ) ");
+    } else {
+      System.out.println("Operator not supported: "+binaryOperation.getType());
+      appendWhyMLLastString("Operator not supported: "+binaryOperation.getType());
+    }
+    binaryOperation.walk(this);
+    appendWhyMLLastString(" )");
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+  //================= <Missing visitor methods -- Unsupported parts of the language> =================
+
+  @Override
+  public void visitUnaryOperation(UnaryOperation unaryOperation) {
+    System.out.println("Unary operator unsupported");
+    whyMLcode.add(space() + "Unary operator: " + unaryOperation.getType());
+    incr();
+    unaryOperation.getExpressionStatement().accept(this);
+    decr();
+  }
+
+
+
+
+  @Override
+  public void visitCaseStatement(CaseStatement caseStatement) {
+    incr();
+    System.out.println("Case unsupported");
+    whyMLcode.add(space() + "Case");
+    incr();
+    for (WhenClause<Block> c : caseStatement.getClauses()) {
+      whyMLcode.add(space() + "When");
+      incr();
+      c.condition().accept(this);
+      c.action().accept(this);
+      decr();
+    }
+    whyMLcode.add(space() + "Otherwise");
+    caseStatement.getOtherwise().accept(this);
+    decr();
+  }
+
+  @Override
+  public void visitMatchExpression(MatchExpression matchExpression) {
+    incr();
+    System.out.println("Match unsupported");
+    whyMLcode.add(space() + "Match");
+    incr();
+    for (WhenClause<?> c : matchExpression.getClauses()) {
+      c.accept(this);
+    }
+    whyMLcode.add(space() + "Otherwise");
+    matchExpression.getOtherwise().accept(this);
+    decr();
+  }
+
+  @Override
+  public void visitWhenClause(WhenClause<?> whenClause) {
+    System.out.println("When unsupported");
+    whyMLcode.add(space() + "When");
+    incr();
+    whenClause.walk(this);
+    decr();
+  }
+
+  @Override
+  public void visitLoopStatement(LoopStatement loopStatement) {
+    System.out.println("Loop unsupported");
+    whyMLcode.add(space() + "Loop");
+    incr();
+    if (loopStatement.hasInitStatement()) {
+      loopStatement.getInitStatement().accept(this);
+    }
+    loopStatement.getConditionStatement().accept(this);
+    loopStatement.getBlock().accept(this);
+    if (loopStatement.hasPostStatement()) {
+      loopStatement.getPostStatement().accept(this);
+    }
+    decr();
+  }
+
+  @Override
+  public void visitForEachLoopStatement(ForEachLoopStatement foreachStatement) {
+    System.out.println("Foreach unsupported");
+    whyMLcode.add(space() + "Foreach");
+    incr();
+    for (LocalReference ref : foreachStatement.getReferences()) {
+      ref.accept(this);
+    }
+    foreachStatement.getIterable().accept(this);
+    if (foreachStatement.hasWhenClause()) {
+      whyMLcode.add(space() + "When:");
+      foreachStatement.getWhenClause().accept(this);
+    }
+    foreachStatement.getBlock().accept(this);
+    decr();
+  }
+
+  @Override
+  public void visitMethodInvocation(MethodInvocation methodInvocation) {
+    System.out.println("Method invocation unsupported");
+    whyMLcode.add(space() + "Method invocation: "+methodInvocation.getName()+", null safe? -> "+methodInvocation.isNullSafeGuarded());
+    incr();
+    methodInvocation.walk(this);
+    decr();
+  }
+
+  @Override
+  public void visitThrowStatement(ThrowStatement throwStatement) {
+    System.out.println("Throw unsupported");
+    whyMLcode.add(space() + "Throw");
+    incr();
+    throwStatement.getExpressionStatement().accept(this);
+    decr();
+  }
+
+  @Override
+  public void visitTryCatchFinally(TryCatchFinally tryCatchFinally) {
+    System.out.println("Try Catch Finally unsupported");
+    whyMLcode.add(space() + "Try");
+    incr();
+    tryCatchFinally.getTryBlock().accept(this);
+    decr();
+    if (tryCatchFinally.hasCatchBlock()) {
+      whyMLcode.add(space() + "Catch: " + tryCatchFinally.getExceptionId());
+      incr();
+      tryCatchFinally.getCatchBlock().accept(this);
+      decr();
+    }
+    if (tryCatchFinally.hasFinallyBlock()) {
+      whyMLcode.add(space() + "Finally");
+      incr();
+      tryCatchFinally.getFinallyBlock().accept(this);
+      decr();
+    }
+  }
+
+  @Override
+  public void visitClosureReference(ClosureReference closureReference) {
+    GoloFunction target = closureReference.getTarget();
+    incr();
+    if (target.isAnonymous()) {
+      System.out.println("Closure unsupported");
+      whyMLcode.add(space() + "Closure: ");
+      incr();
+      visitFunctionDefinition(target);
+      decr();
+    } else {
+      // ReferenceTable table = context.referenceTableStack.peek();
+      System.out.println("Closure reference unsupported");
+      appendWhyMLLastString("Closure reference: " + target.getName() + ", regular arguments at index " +target.getSyntheticParameterCount());
+      whyMLcode.add("");
+        incr();
+      for (String refName : closureReference.getCapturedReferenceNames()) {
+        appendWhyMLLastString(space() + "- capture: " + refName);
+      }
+      decr();
+    }
+    decr();
+  }
+
+  @Override
+  public void visitLoopBreakFlowStatement(LoopBreakFlowStatement loopBreakFlowStatement) {
+    incr();
+    System.out.println("Loop break unsupported");
+    whyMLcode.add(space() + "Loop break flow: " + loopBreakFlowStatement.getType().name());
+    decr();
+  }
+
+  @Override
+  public void visitCollectionLiteral(CollectionLiteral collectionLiteral) {
+    incr();
+    System.out.println("Collection literal unsupported");
+    whyMLcode.add(space() + "Collection literal of type: " + collectionLiteral.getType());
+    for (ExpressionStatement statement : collectionLiteral.getExpressions()) {
+      statement.accept(this);
+    }
+    decr();
+  }
+
+  @Override
+  public void visitCollectionComprehension(CollectionComprehension collectionComprehension) {
+    incr();
+    System.out.println("Collection comprehension unsupported");
+    whyMLcode.add(space() + "Collection comprehension of type: " + collectionComprehension.getType());
+    incr();
+    whyMLcode.add(space() + "Expression: ");
+    collectionComprehension.getExpression().accept(this);
+    whyMLcode.add(space() + "Comprehension: ");
+    for (Block b : collectionComprehension.getLoopBlocks()) {
+      b.accept(this);
+    }
+    decr();
+    decr();
+  }
+
+  @Override
+  public void visitNamedArgument(NamedArgument namedArgument) {
+    incr();
+    System.out.println("Named argument unsupported");
+    whyMLcode.add(space() + "Named argument: " + namedArgument.getName());
+    namedArgument.getExpression().accept(this);
+    decr();
+  }
+
+
 
   @Override
   public void visitModuleImport(ModuleImport moduleImport) {
@@ -359,165 +795,11 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
   }
 
   @Override
-  public void visitFunction(GoloFunction function) {
-    incr();
-    //System.out.println("Function: "+function.getName());
-    functionsDefined.add(new functionNameArity(function.getName(),function.getArity()));
-    whyMLcode.add(space() + "let " + function.getName() + " ");
-    appendWhyMLLastString(getSourceCodeBlocksLines(function) + " = ");
-    whyMLcode.add(space() + "fun ");
-    visitFunctionDefinition(function);
-    decr();
-  }
-
-  private void visitFunctionDefinition(GoloFunction function) {
-    LinkedList<LocalReference> refList = function.returnOnlyReference(this);
-    for (String param : function.getParameterNames()) {
-      appendWhyMLLastString("( " + param + " )");
-    }
-    if (function.getParameterNames().isEmpty()){
-      appendWhyMLLastString("()");
-    }
-    if (function.isVarargs()) {
-      System.out.println("varargs unsupported");
-      appendWhyMLLastString(" (varargs)");
-    }
-    if (function.isSynthetic()) {
-      System.out.println("synthetic unsupported");
-      appendWhyMLLastString(" (synthetic, " + function.getSyntheticParameterCount() + " synthetic parameters)");
-      if (function.getSyntheticSelfName() != null) {
-        appendWhyMLLastString(" (selfname: " + function.getSyntheticSelfName() + ")");
-      }
-    }
-    appendWhyMLLastString(" -> ");
-    //Add specification
-    whyMLcode.add(space()+function.getSpecification());
-    //Declaration of local variables
-    incr();
-    for (LocalReference ref: refList) {
-      boolean isParam = false;
-      for (String param: function.getParameterNames()){
-        if (ref.getName().equals(param)) {
-          isParam = true;
-        }
-      }
-      if(!isParam && !ref.isConstant()){
-        whyMLcode.add(space() + "let " + ref.getName() + " = ref "+usedInt+" in ");
-      }
-    }
-    whyMLcode.add(space() + "let return = ref "+usedInt+" in try begin");
-    decr();
-    function.walk(this);
-    incr();
-    whyMLcode.add(space() + "; end with Return -> !return end");
-    decr();
-  }
-
-  @Override
   public void visitDecorator(Decorator decorator) {
     incr();
     System.out.println("Decorator unsupported");
     whyMLcode.add(space() + "@Decorator");
     decorator.getExpressionStatement().accept(this);
-    decr();
-  }
-
-  @Override
-  public void visitBlock(Block block) {
-    ReferenceTable referenceTable = block.getReferenceTable();
-    context.referenceTableStack.push(referenceTable);
-    if (block.isEmpty()) { return; }
-    incr();
-    // space(); System.out.println("(* Block *)");
-    whyMLcode.add(space() + "begin (");
-    whyMLcode.add(space() + getSourceCodeBlocksLines(block));
-    block.walk(this);
-    whyMLcode.add(space() + ") end");
-    decr();
-    context.referenceTableStack.pop();
-  }
-
-  @Override
-  public void visitLocalReference(LocalReference ref) {
-    incr();
-    // space(); System.out.println("(* - " + ref + " *)");
-    decr();
-  }
-
-  @Override
-  public void visitConstantStatement(ConstantStatement constantStatement) {
-    // System.out.print(" (* Constant = *) ");
-    incr();
-    if(int32 && constantStatement.getValue() instanceof Integer) {
-      // In case of 32bits literal integer, we have to call the of_int function on the absolute value of the constant.
-      int v = ((Integer) constantStatement.getValue()).intValue();
-      if(v<0) {
-        whyMLcode.add(space() + "(  - ( of_int " + (-v) + " )) ");
-      } else {
-        whyMLcode.add(space() + "(  of_int " + v + " ) ");
-      }
-    } else {
-      whyMLcode.add(space() + "( " + constantStatement.getValue() + " ) ");
-    }
-    decr();
-  }
-
-  @Override
-  public void visitReturnStatement(ReturnStatement returnStatement) {
-    incr();
-    whyMLcode.add(space() + "(return := ");
-    returnStatement.walk(this);
-    appendWhyMLLastString(");");
-    whyMLcode.add(space() + "(raise Return)");
-    decr();
-  }
-
-  @Override
-  public void visitFunctionInvocation(FunctionInvocation functionInvocation) {
-    incr();
-    /* space();
-    System.out.println("Function call: " + functionInvocation.getName()
-        + ", on reference? -> " + functionInvocation.isOnReference()
-        + ", on module state? -> " + functionInvocation.isOnModuleState()
-        + ", anonymous? -> " + functionInvocation.isAnonymous()
-        + ", named arguments? -> " + functionInvocation.usesNamedArguments());*/
-    if (!functionInvocation.isOnReference() && !functionInvocation.isOnModuleState()) {
-      functionsCalled.add(new functionNameArity(functionInvocation.getName(),functionInvocation.getArity(), functionInvocation.getPositionInSourceCode()));
-      whyMLcode.add(space() + functionInvocation.getName() + " ");
-    }
-    else {
-      /* ReferenceTable table = context.referenceTableStack.peek();
-      System.out.println(table.get(functionInvocation.getName()));
-      System.out.println(table.hasReferenceFor(functionInvocation.getName()));*/
-
-      // Need to support closures before being able to implement this
-      System.out.println("Function call on reference or module state unsupported");
-      whyMLcode.add("Function call on reference or module state not implemented");
-    }
-    if (functionInvocation.getArity()==0) {
-      appendWhyMLLastString("(");
-    }
-    functionInvocation.walk(this);
-    if (functionInvocation.getArity()==0) {
-      appendWhyMLLastString(")");
-    }
-    decr();
-  }
-
-  @Override
-  public void visitAssignmentStatement(AssignmentStatement assignmentStatement) {
-    String refName = assignmentStatement.getLocalReference().getName();
-    incr();
-    // space(); System.out.println("(* Assignment: " + assignmentStatement.getLocalReference() + " *)");
-    if (assignmentStatement.getLocalReference().isConstant()) {
-      whyMLcode.add(space() + "let " + refName + " = ");
-      assignmentStatement.walk(this);
-      whyMLcode.add(space() + " in");
-    } else {
-      whyMLcode.add(space() + "( "  + refName + " := ");
-      assignmentStatement.walk(this);
-      whyMLcode.add(space() + " );");
-    }
     decr();
   }
 
@@ -535,251 +817,5 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     decr();
   }
 
-  @Override
-  public void visitReferenceLookup(ReferenceLookup referenceLookup) {
-    LocalReference reference = referenceLookup.resolveIn(context.referenceTableStack.peek());
-    incr();
-    // space(); System.out.println("(* Reference lookup, Constant? " + reference.isConstant() + " *)");
-    if (reference.isConstant()) {
-      whyMLcode.add(space() + "( " + referenceLookup.getName() + " ) ");
-    } else {
-      whyMLcode.add(space() + "( !" + referenceLookup.getName() + " ) ");
-    }
-    decr();
-  }
 
-  @Override
-  public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
-    whyMLcode.add(space() + "if (");
-    conditionalBranching.getCondition().accept(this);
-    whyMLcode.add(space() + ") then");
-    conditionalBranching.getTrueBlock().accept(this);
-
-    if (conditionalBranching.hasFalseBlock()) {
-      whyMLcode.add(space() + "else");
-      conditionalBranching.getFalseBlock().accept(this);
-    } else if (conditionalBranching.hasElseConditionalBranching()) {
-      whyMLcode.add(space() + "else");
-      conditionalBranching.getElseConditionalBranching().accept(this);
-    }
-  }
-
-  @Override
-  public void visitCaseStatement(CaseStatement caseStatement) {
-    incr();
-    System.out.println("Case unsupported");
-    whyMLcode.add(space() + "Case");
-    incr();
-    for (WhenClause<Block> c : caseStatement.getClauses()) {
-      whyMLcode.add(space() + "When");
-      incr();
-      c.condition().accept(this);
-      c.action().accept(this);
-      decr();
-    }
-    whyMLcode.add(space() + "Otherwise");
-    caseStatement.getOtherwise().accept(this);
-    decr();
-  }
-
-  @Override
-  public void visitMatchExpression(MatchExpression matchExpression) {
-    incr();
-    System.out.println("Match unsupported");
-    whyMLcode.add(space() + "Match");
-    incr();
-    for (WhenClause<?> c : matchExpression.getClauses()) {
-      c.accept(this);
-    }
-    whyMLcode.add(space() + "Otherwise");
-    matchExpression.getOtherwise().accept(this);
-    decr();
-  }
-
-  @Override
-  public void visitWhenClause(WhenClause<?> whenClause) {
-    System.out.println("When unsupported");
-    whyMLcode.add(space() + "When");
-    incr();
-    whenClause.walk(this);
-    decr();
-  }
-
-  @Override
-  public void visitBinaryOperation(BinaryOperation binaryOperation) {
-    incr();
-    // space(); System.out.println("(* Binary operator: *)");
-    //TODO : support all operators OperatorType
-    //TODO : Moving constants out of the method
-    List<OperatorType> supportedOperators = new ArrayList<>();
-    supportedOperators.addAll(Arrays.asList(OperatorType.AND,
-      OperatorType.PLUS,
-      OperatorType.MINUS,
-      OperatorType.TIMES,
-      OperatorType.DIVIDE,
-      OperatorType.MODULO,
-      OperatorType.LESS,
-      OperatorType.LESSOREQUALS,
-      OperatorType.MORE,
-      OperatorType.MOREOREQUALS));
-    if (supportedOperators.contains(binaryOperation.getType())) {
-      whyMLcode.add(space() + "( " + binaryOperation.getType() + " ) ");
-    } else if (binaryOperation.getType() == OperatorType.EQUALS) {
-      whyMLcode.add(space() + "( = ) ");
-    } else if (binaryOperation.getType() == OperatorType.NOTEQUALS) {
-      whyMLcode.add(space() + "( <> ) ");
-    } else {
-      System.out.println("Operator not supported: "+binaryOperation.getType());
-      whyMLcode.add(space() + "Operator not supported: "+binaryOperation.getType());
-    }
-    binaryOperation.walk(this);
-    decr();
-  }
-
-  @Override
-  public void visitUnaryOperation(UnaryOperation unaryOperation) {
-    incr();
-    System.out.println("Unary operator unsupported");
-    whyMLcode.add(space() + "Unary operator: " + unaryOperation.getType());
-    unaryOperation.getExpressionStatement().accept(this);
-    decr();
-  }
-
-  @Override
-  public void visitLoopStatement(LoopStatement loopStatement) {
-    incr();
-    System.out.println("Loop unsupported");
-    whyMLcode.add(space() + "Loop");
-    if (loopStatement.hasInitStatement()) {
-      loopStatement.getInitStatement().accept(this);
-    }
-    loopStatement.getConditionStatement().accept(this);
-    loopStatement.getBlock().accept(this);
-    if (loopStatement.hasPostStatement()) {
-      loopStatement.getPostStatement().accept(this);
-    }
-    decr();
-  }
-
-  @Override
-  public void visitForEachLoopStatement(ForEachLoopStatement foreachStatement) {
-    incr();
-    System.out.println("Foreach unsupported");
-    whyMLcode.add(space() + "Foreach");
-    incr();
-    for (LocalReference ref : foreachStatement.getReferences()) {
-      ref.accept(this);
-    }
-    foreachStatement.getIterable().accept(this);
-    if (foreachStatement.hasWhenClause()) {
-      whyMLcode.add(space() + "When:");
-      foreachStatement.getWhenClause().accept(this);
-    }
-    foreachStatement.getBlock().accept(this);
-    decr();
-    decr();
-  }
-
-  @Override
-  public void visitMethodInvocation(MethodInvocation methodInvocation) {
-    incr();
-    System.out.println("Method invocation unsupported");
-    whyMLcode.add(space() + "Method invocation: "+methodInvocation.getName()+", null safe? -> "+methodInvocation.isNullSafeGuarded());
-    methodInvocation.walk(this);
-    decr();
-  }
-
-  @Override
-  public void visitThrowStatement(ThrowStatement throwStatement) {
-    incr();
-    System.out.println("Throw unsupported");
-    whyMLcode.add(space() + "Throw");
-    throwStatement.getExpressionStatement().accept(this);
-    decr();
-  }
-
-  @Override
-  public void visitTryCatchFinally(TryCatchFinally tryCatchFinally) {
-    incr();
-    System.out.println("Try Catch Finally unsupported");
-    whyMLcode.add(space() + "Try");
-    tryCatchFinally.getTryBlock().accept(this);
-    if (tryCatchFinally.hasCatchBlock()) {
-      whyMLcode.add(space() + "Catch: " + tryCatchFinally.getExceptionId());
-      tryCatchFinally.getCatchBlock().accept(this);
-    }
-    if (tryCatchFinally.hasFinallyBlock()) {
-      whyMLcode.add(space() + "Finally");
-      tryCatchFinally.getFinallyBlock().accept(this);
-    }
-    decr();
-  }
-
-  @Override
-  public void visitClosureReference(ClosureReference closureReference) {
-    GoloFunction target = closureReference.getTarget();
-    incr();
-    if (target.isAnonymous()) {
-      System.out.println("Closure unsupported");
-      whyMLcode.add(space() + "Closure: ");
-      incr();
-      visitFunctionDefinition(target);
-      decr();
-    } else {
-      // ReferenceTable table = context.referenceTableStack.peek();
-      System.out.println("Closure reference unsupported");
-      appendWhyMLLastString("Closure reference: " + target.getName() + ", regular arguments at index " +target.getSyntheticParameterCount());
-      whyMLcode.add("");
-        incr();
-      for (String refName : closureReference.getCapturedReferenceNames()) {
-        appendWhyMLLastString(space() + "- capture: " + refName);
-      }
-      decr();
-    }
-    decr();
-  }
-
-  @Override
-  public void visitLoopBreakFlowStatement(LoopBreakFlowStatement loopBreakFlowStatement) {
-    incr();
-    System.out.println("Loop break unsupported");
-    whyMLcode.add(space() + "Loop break flow: " + loopBreakFlowStatement.getType().name());
-    decr();
-  }
-
-  @Override
-  public void visitCollectionLiteral(CollectionLiteral collectionLiteral) {
-    incr();
-    System.out.println("Collection literal unsupported");
-    whyMLcode.add(space() + "Collection literal of type: " + collectionLiteral.getType());
-    for (ExpressionStatement statement : collectionLiteral.getExpressions()) {
-      statement.accept(this);
-    }
-    decr();
-  }
-
-  @Override
-  public void visitCollectionComprehension(CollectionComprehension collectionComprehension) {
-    incr();
-    System.out.println("Collection comprehension unsupported");
-    whyMLcode.add(space() + "Collection comprehension of type: " + collectionComprehension.getType());
-    incr();
-    whyMLcode.add(space() + "Expression: ");
-    collectionComprehension.getExpression().accept(this);
-    whyMLcode.add(space() + "Comprehension: ");
-    for (Block b : collectionComprehension.getLoopBlocks()) {
-      b.accept(this);
-    }
-    decr();
-    decr();
-  }
-
-  @Override
-  public void visitNamedArgument(NamedArgument namedArgument) {
-    incr();
-    System.out.println("Named argument unsupported");
-    whyMLcode.add(space() + "Named argument: " + namedArgument.getName());
-    namedArgument.getExpression().accept(this);
-    decr();
-  }
 }

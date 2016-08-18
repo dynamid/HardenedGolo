@@ -18,10 +18,11 @@ module test.MinInt
 #                               x>= -2147483647
 #                           }
 #                           ensures{
-function myAbs = |x| spec/ ensures{
-                               (result >= 0) /\
-                               (result = x \/ result = -x)}
-                     /spec {
+function myAbs = |x| {
+    # spec/ ensures{
+    #                            (result >= 0) /\
+    #                            (result = x \/ result = -x)}
+    #                  /spec {
 	if (x < 0){
 		return (0 - x)
 	} else {
@@ -29,14 +30,15 @@ function myAbs = |x| spec/ ensures{
 	}
 }
 
-function princ = {
-	#let a = myAbs(-2147483648)
-    let a = myAbs(-2147483647)
-	#let a = myAbs(3)
-	return (a)
-}
+# function princ = {
+# 	#let a = myAbs(-2147483648)
+#     let a = myAbs(-2147483647)
+# 	#let a = myAbs(3)
+# 	return (a)
+# }
 
 function main = |args| {
-    let a = princ()
+    myAbs(3)
+    # let a = princ()
 #    println(a)
 }
