@@ -22,6 +22,40 @@ import java.nio.file.Paths;
 import java.nio.charset.Charset;
 
 
+/* TODO List :
+   - Problème de conversion des expression composées.
+     Ex :
+                        r/4 - 100*n
+     provides :
+                        ( - )
+                            ( / )
+                                ( r )
+                                (  of_int 4 )
+                            ( * )
+                                (  of_int 100 )
+                                ( n )
+     instead of :
+
+                        ( - )
+                            ( ( / )
+                                ( r )
+                                (  of_int 4 ) )
+                            ( ( * )
+                                (  of_int 100 )
+                                ( n ) )
+
+
+
+   - Il manque peut être un ";" entre séquence if / elsif / elsif et les instructions suivantes
+
+
+
+  Solved :
+   - Correct problem of begin/end while if / elsif / elsif
+   - Remove the erroneous "if" added while elsif
+ */
+
+
 /**
  * <p>This Visitor aims at verifying the correctness of the golo program.
  * It generates a .mlw file containing some verification conditions.
@@ -46,7 +80,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
   /// Indentation management
   private int spacing = 0;
-  private final int INDENTATION_WIDTH =4;
+  private final static int INDENTATION_WIDTH = 4;
 
 
 
@@ -223,6 +257,10 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     }
   }
 
+
+
+
+  //================= <Visitor methods> =================
   @Override
   public void visitModule(GoloModule module) {
     this.context = new Context();
@@ -512,24 +550,18 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
   @Override
   public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
-    incr();
-
     whyMLcode.add(space() + "if (");
     conditionalBranching.getCondition().accept(this);
-    whyMLcode.add(space() + ") then begin (");
+    whyMLcode.add(space() + ") then");
     conditionalBranching.getTrueBlock().accept(this);
-    whyMLcode.add(space() + ") end");
+
     if (conditionalBranching.hasFalseBlock()) {
-      whyMLcode.add(space() + "else begin (");
+      whyMLcode.add(space() + "else");
       conditionalBranching.getFalseBlock().accept(this);
-      whyMLcode.add(space() + ") end");
     } else if (conditionalBranching.hasElseConditionalBranching()) {
-      // TODO : Probably missing recursive consideration.
-      whyMLcode.add(space() + "else if begin (");
+      whyMLcode.add(space() + "else");
       conditionalBranching.getElseConditionalBranching().accept(this);
-      whyMLcode.add(space() + ") end");
     }
-    decr();
   }
 
   @Override
