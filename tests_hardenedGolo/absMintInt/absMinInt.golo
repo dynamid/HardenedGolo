@@ -32,7 +32,7 @@ module test.MinInt
 
 function princ = {
 	#let a = myAbs(-2147483648)
-    let a = myAbs(-2147483647)
+    let a = myAbs(-2147483647) + 2
 	#let a = myAbs(3)
 	return (a)
 }

@@ -23,18 +23,16 @@ import java.nio.charset.Charset;
 
 
 /* TODO List :
-    - Remove the ";" at the and of a function, before the "with return".
-       ==> needs to check consequences, but this ";" has to be added at the end of each instruction.
-       ==> Be careful with blocks that do not add ";" at their end
-
-    - Correct the miss of ";" when calling a function without result. A return is generated
-
     - Propose a turnover or a translation for some internal function like println
-
-    - Add parenthesis to negative values. This is not valid : myAbs -2147483647 ; but this is valid : myAbs (-2147483647)
+      ==> Be careful with possible border-effects in the parameter of such functions.
 
   Solved :
+    - Better management of ';'. Its now the block structure that inserts it between each statement.
+      + Removes the ";" at the and of a function, before the "with return".
+      + Checked consequences, but this ";" has to be added at the end of each instruction.
+       ==> Be careful with blocks that do not add ";" at their end
 
+    - Add parenthesis to negative values. This is not valid : myAbs -2147483647 ; but this is valid : myAbs (-2147483647)
  */
 
 
@@ -176,6 +174,34 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
   private void appendWhyMLLastString(String toAppend){
     whyMLcode.set(whyMLcode.size()-1,whyMLcode.get(whyMLcode.size()-1) + toAppend);
   }
+
+
+
+  // Following methods used to deals with the final ";". The complexity is linked to the consideration of
+  // FunctionInvocation that can be as well an expression as a Statement.
+  private boolean inBlock=false;
+
+  public boolean maskIfInBlock() {
+    return maskIfInBlock(false);
+  }
+
+  public boolean maskIfInBlock(boolean newIb) {
+    boolean ib = inBlock;
+    inBlock=newIb;
+    return ib;
+  }
+
+  public void restoreIfInBlock(boolean ib) {
+    restoreIfInBlock(ib,ib);
+  }
+
+  public void restoreIfInBlock(boolean ib, boolean force) {
+    inBlock=ib;
+    if(force) {
+      appendWhyMLLastString(";");
+    }
+  }
+
   //================= </Code generation methods> =================
 
 
@@ -321,13 +347,14 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     incr();
     function.walk(this);
     decr();
-    whyMLcode.add(space() + ";");
+//    whyMLcode.add(space() + ";");
     whyMLcode.add(space() + "with Return -> !return end");
     decr();
   }
 
   @Override
   public void visitBlock(Block block) {
+    boolean ib = maskIfInBlock(true);
     ReferenceTable referenceTable = block.getReferenceTable();
     context.referenceTableStack.push(referenceTable);
     if (block.isEmpty()) { return; }
@@ -338,14 +365,13 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     block.walk(this);
     decr();
     whyMLcode.add(space() + ") end");
+    restoreIfInBlock(ib);
     context.referenceTableStack.pop();
   }
 
   @Override
   public void visitLocalReference(LocalReference ref) {
-    incr();
     // space(); System.out.println("(* - " + ref + " *)");
-    decr();
   }
 
   @Override
@@ -358,6 +384,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
   @Override
   public void visitFunctionInvocation(FunctionInvocation functionInvocation) {
+    boolean ib = maskIfInBlock();
     /* space();
     System.out.println("Function call: " + functionInvocation.getName()
         + ", on reference? -> " + functionInvocation.isOnReference()
@@ -366,7 +393,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
         + ", named arguments? -> " + functionInvocation.usesNamedArguments());*/
     if (!functionInvocation.isOnReference() && !functionInvocation.isOnModuleState()) {
       functionsCalled.add(new functionNameArity(functionInvocation.getName(),functionInvocation.getArity(), functionInvocation.getPositionInSourceCode()));
-      whyMLcode.add(space() + functionInvocation.getName() + " ");
+      whyMLcode.add(space() + "("+functionInvocation.getName() + " ");
     }
     else {
       /* ReferenceTable table = context.referenceTableStack.peek();
@@ -384,11 +411,14 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     if (functionInvocation.getArity()==0) {
       appendWhyMLLastString(")");
     }
+    appendWhyMLLastString(") "); // The whole function is between parenthesis
+    restoreIfInBlock(ib);
   }
 
 
   @Override
   public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
+    boolean ib = maskIfInBlock();
     whyMLcode.add(space() + "if ");
     incr();
     conditionalBranching.getCondition().accept(this);
@@ -402,16 +432,14 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
       whyMLcode.add(space() + "else");
       incr();
       conditionalBranching.getFalseBlock().accept(this);
-      appendWhyMLLastString(";");
       decr();
     } else if (conditionalBranching.hasElseConditionalBranching()) {
       whyMLcode.add(space() + "else");
       incr();
       conditionalBranching.getElseConditionalBranching().accept(this);
       decr();
-    } else {
-      appendWhyMLLastString(";");
     }
+    restoreIfInBlock(ib);
   }
 
   @Override
@@ -421,15 +449,19 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     if (assignmentStatement.getLocalReference().isConstant()) {
       whyMLcode.add(space() + "let " + refName + " = ");
       incr();
+      boolean ib = maskIfInBlock();
       assignmentStatement.walk(this);
+      restoreIfInBlock(ib, false);
       decr();
       appendWhyMLLastString(" in");
     } else {
+      boolean ib = maskIfInBlock();
       whyMLcode.add(space() + "( "  + refName + " := ");
       incr();
       assignmentStatement.walk(this);
       decr();
-      appendWhyMLLastString(" );");
+      appendWhyMLLastString(" ) ");
+      restoreIfInBlock(ib);
     }
   }
 
@@ -450,17 +482,26 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
   @Override
   public void visitConstantStatement(ConstantStatement constantStatement) {
     // System.out.print(" (* Constant = *) ");
-    if(int32 && constantStatement.getValue() instanceof Integer) {
+    if(constantStatement.getValue() instanceof Integer) {
       // In case of 32bits literal integer, we have to call the of_int function on the absolute value of the constant.
       int v = ((Integer) constantStatement.getValue()).intValue();
-      if(v<0) {
-        appendWhyMLLastString("(  - ( of_int " + (-v) + " )) ");
+      if(int32) {
+        if (v < 0) {
+          appendWhyMLLastString("(  - ( of_int " + (-v) + " )) ");
+        } else {
+          appendWhyMLLastString("( of_int " + v + " ) ");
+        }
       } else {
-        appendWhyMLLastString("( of_int " + v + " ) ");
+        if (v < 0) {
+          appendWhyMLLastString("(" + v + ") ");
+        } else {
+          appendWhyMLLastString(v+" ");
+        }
       }
     } else {
-      appendWhyMLLastString(constantStatement.getValue()+" ");
+      appendWhyMLLastString(constantStatement.getValue()+"");
     }
+    appendWhyMLLastString(" ");
   }
 
 
@@ -492,7 +533,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
       appendWhyMLLastString("Operator not supported: "+binaryOperation.getType());
     }
     binaryOperation.walk(this);
-    appendWhyMLLastString(" )");
+    appendWhyMLLastString(" ) ");
   }
 
 
