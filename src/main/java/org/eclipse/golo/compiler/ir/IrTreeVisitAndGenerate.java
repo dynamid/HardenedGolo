@@ -23,16 +23,29 @@ import java.nio.charset.Charset;
 
 
 /* TODO List :
+    - Consider use of multiple golo files with import of methods specification
+      => generate multiple modules in a single WhyML file ?
+
     - Propose a turnover or a translation for some internal function like println
       ==> Be careful with possible border-effects in the parameter of such functions.
 
-  Solved :
-    - Better management of ';'. Its now the block structure that inserts it between each statement.
-      + Removes the ";" at the and of a function, before the "with return".
-      + Checked consequences, but this ";" has to be added at the end of each instruction.
-       ==> Be careful with blocks that do not add ";" at their end
+    - Ajouter la prise en compte de la logique de spécification
 
-    - Add parenthesis to negative values. This is not valid : myAbs -2147483647 ; but this is valid : myAbs (-2147483647)
+    - La prochaine étape et de faire un visiteur qui fasse de la réecriture pour générer une nouvelle rotation intermédiaire en version simple affectation (Static Single Assignment).
+       => Dans cette conversion il sera notamment possible de convertir les appels de fonction pour qu'elle soit systématiquement en statement.
+       => Pb de gestion des conditions d'arrêt dans les boucles
+       => Pb de continuation après un IF, un switch ou un try/catch
+       => Pb de réécriture des spécifications
+
+    - Le Visiteur actuel sera là uniquement le printer.
+
+    - Faire de l'induction du type du pauvre. En rajoutant également une information de type sur chacune des variables. cet index de variable devrait être contextualisé.
+
+    - Consider 2 types of data : Objects and integers
+      + consider declared methods call
+      + add primitives in specs to describe methods properties => define a Why theory ?
+
+  Solved :
  */
 
 
