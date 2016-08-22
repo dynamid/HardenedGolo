@@ -59,7 +59,5 @@ public class JGConjunctive implements JGFormula {
     }
 
     @Override
-    public String toString() {
-        return "(" + subformulaA.toString() + " & " + subformulaB.toString() + ")";
-    }
+    public String toString() { return "(" + subformulaA.toString() + " /\\ " + subformulaB.toString() + ")"; }
 }

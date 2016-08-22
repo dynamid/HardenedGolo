@@ -39,7 +39,7 @@ package org.eclipse.golo.compiler.jgoloparser;
 import java.io.StringReader;
 import java.util.ArrayList;
 
-import org.eclipse.golo.compiler.jgoloparser.*;
+//import org.eclipse.golo.compiler.jgoloparser.*;
 
 /**
  * <p>
@@ -75,8 +75,19 @@ import org.eclipse.golo.compiler.jgoloparser.*;
  *           | "exists " var "." form
  *           | "forall " var "." form
  *
+ * spec ::=   ensures "{" form "}"
+ *          | requires "{" form "}"
+ *          | invariant "{" form "}"
+ *          | variant "{" form "}"
+ *
+ * specs ::= spec | spec specs
  * </pre>
  * </p>
+
+ TODO : no distinction between variables and fun through first lettter capitlisation
+ TODO : add spec and specs
+ TODO : add arithmetics
+ TODO : ...
  *
  * @author Dominic Scheurer
  * @author Nicolas Stouls
@@ -86,13 +97,13 @@ public class FolJGoloParser
     /**
      * Parses a given formula.
      *
-     * @param formula Formula to parse.
+     * @param formula JGFormula to parse.
      * @return Parsed formula object.
      * @throws ParseException if an error occurs during parsing.
      */
-    public static JGFormula parse(String formula) throws ParseException
+    public static JGSpecs parse(String formula) throws ParseException
     {
-        FOLParser parser =
+        FolJGoloParser parser =
         		new FolJGoloParser(new StringReader(formula));
         return parser.parse();
     }
@@ -116,37 +127,93 @@ TOKEN :
 |	< DOT: "." >
 
 |	< NEG: "!" >
-|	< CONJ: "/\" >
-|	< DISJ: "\/" >
+|	< CONJ: "/\\" >
+|	< DISJ: "\\/" >
 |	< IMP: "->" >
 |	< ALL: "forall" >
 |	< EXIST: "exists" >
 
-|   < VARIABLE: < UPPER > (< INNER >)* >
-|   < ID: < LOWER > (< INNER >)* >
+| < ENSURES: "ensures" >
+| < REQUIRES: "requires" >
+| < INVARIANT: "invariant" >
+| < VARIANT: "variant" >
+
+
+| < VARIABLE: < UPPER > (< INNER >)* >
+| < ID: < LOWER > (< INNER >)* >
 
 |   < #INNER: (<UPPER> | <UNDER> | <LOWER> | <DIGIT>) >
 |   < #DIGIT: ["0" - "9"] >
 |   < #LOWER: ["a" - "z"] >
 |   < #UPPER: ["A" - "Z"] >
 |   < #UNDER: "_"  >
+
 }
 
-Formula parse() :
+JGSpecs parse() :
 {
-    Formula form;
+    JGSpecs specs;
 }
 {
-    form = formula()
+    specs = specs()
     < EOF >
     {
-        return form;
+        return specs;
     }
 }
 
-Formula formula() :
+JGSpecs specs() :
 {
-    Formula form;
+    JGSpecs specs = new JGSpecs();
+    JGSpec spec;
+}
+{
+    (
+        spec = spec()
+        {
+          specs.add(spec);
+        }
+    )+
+    {
+        return specs;
+    }
+}
+
+
+JGSpec spec() :
+{
+    JGFormula form;
+    String specType;
+}
+{
+
+    specType=specType()
+    "{"
+    form=formula()
+    "}"
+    {
+        return new JGSpec(specType,form);
+    }
+}
+
+
+String specType() :
+{
+    String specType;
+}
+{
+
+    < ENSURES >   {return "ensures"; } |
+    < REQUIRES >  {return "requires"; } |
+    < INVARIANT > {return "invariant"; } |
+    < VARIANT >   {return "variant"; }
+}
+
+
+
+JGFormula formula() :
+{
+    JGFormula form;
 }
 {
 	(
@@ -161,57 +228,57 @@ Formula formula() :
 	}
 }
 
-Existential existential() :
+JGExistential existential() :
 {
-    Formula inner;
-    Term qfdVar;
+    JGFormula inner;
+    JGTerm qfdVar;
 }
 {
 	< EXIST >
 	< VARIABLE >
 	{
-	    qfdVar = new Term(token.image);
+	    qfdVar = new JGTerm(token.image);
 	}
 	< DOT >
 	inner = formula()
 	{
-	    return new Existential(inner, qfdVar);
+	    return new JGExistential(inner, qfdVar);
 	}
 }
 
-Universal universal() :
+JGUniversal universal() :
 {
-    Formula inner;
-    Term qfdVar;
+    JGFormula inner;
+    JGTerm qfdVar;
 }
 {
 	< ALL >
 	< VARIABLE >
 	{
-	    qfdVar = new Term(token.image);
+	    qfdVar = new JGTerm(token.image);
 	}
 	< DOT >
 	inner = formula()
 	{
-	    return new Universal(inner, qfdVar);
+	    return new JGUniversal(inner, qfdVar);
 	}
 }
 
-Negated negated() :
+JGNegated negated() :
 {
-    Formula inner;
+    JGFormula inner;
 }
 {
 	< NEG >
 	inner = formula()
 	{
-	    return new Negated(inner);
+	    return new JGNegated(inner);
 	}
 }
 
-Formula binary() :
+JGFormula binary() :
 {
-    Formula innerA, innerB;
+    JGFormula innerA, innerB;
 }
 {
     < OPEN >
@@ -221,56 +288,56 @@ Formula binary() :
 		innerB = formula()
 		< CLOSE >
 		{
-		    return new Implicative(innerA, innerB);
+		    return new JGImplicative(innerA, innerB);
 		}
     |
 	    < DISJ >
 		innerB = formula()
 		< CLOSE >
 		{
-		    return new Disjunctive(innerA, innerB);
+		    return new JGDisjunctive(innerA, innerB);
 		}
 	|
 	    < CONJ >
 		innerB = formula()
 		< CLOSE >
 		{
-		    return new Conjunctive(innerA, innerB);
+		    return new JGConjunctive(innerA, innerB);
 		}
 	)
 }
 
-Atomic atomic() :
+JGAtomic atomic() :
 {
-    Predicate p;
-    ArrayList<Term> arguments;
+    JGPredicate p;
+    ArrayList<JGTerm> arguments;
 }
 {
 	< ID >
 	{
-	    p = new Predicate(token.image);
+	    p = new JGPredicate(token.image);
 	}
 	(
 		arguments = tuple()
 		{
-		    return new Atomic(p, arguments);
+		    return new JGAtomic(p, arguments);
 		}
     |
 		{
-		    return new Atomic(p);
+		    return new JGAtomic(p);
 		}
 	)
 }
 
-Term term() :
+JGTerm term() :
 {
     String function;
-    ArrayList<Term> arguments = new ArrayList<Term>();
+    ArrayList<JGTerm> arguments = new ArrayList<JGTerm>();
 }
 {
     < VARIABLE >
     {
-        return new Term(token.image);
+        return new JGTerm(token.image);
     }
   | < ID >
     {
@@ -280,14 +347,14 @@ Term term() :
 		arguments = tuple()
     )?
     {
-    	return new Term(function, arguments);
+    	return new JGTerm(function, arguments);
 	}
 }
 
-ArrayList<Term> tuple() :
+ArrayList<JGTerm> tuple() :
 {
-    ArrayList<Term> tuple = new ArrayList<Term>();
-    Term t;
+    ArrayList<JGTerm> tuple = new ArrayList<JGTerm>();
+    JGTerm t;
 }
 {
     < OPEN >

@@ -8,14 +8,14 @@
 
 module specs.bases
 
-function f = |x| spec/  requires{
+function f = |x,y| spec/  requires{
                                4 >= 3
                            } /spec {
                     #        ensures{
                     #            (result >= 0) /\
                     #            (result = x \/ result = -x)}
                     #  /spec {
-	if (x < 0){
+	if (x < y){
 		return (0 - x)
 	} else {
 		return x
@@ -23,5 +23,5 @@ function f = |x| spec/  requires{
 }
 
 function main = |args| {
-    f(42)
+    f(42,35)
 }

@@ -60,6 +60,6 @@ public class JGDisjunctive implements JGFormula {
 
     @Override
     public String toString() {
-        return "(" + subformulaA.toString() + " | " + subformulaB.toString() + ")";
+        return "(" + subformulaA.toString() + " \\/ " + subformulaB.toString() + ")";
     }
 }

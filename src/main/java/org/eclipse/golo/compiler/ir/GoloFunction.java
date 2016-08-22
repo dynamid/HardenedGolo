@@ -15,6 +15,8 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.Collection;
 
+import org.eclipse.golo.compiler.jgoloparser.FolJGoloParser;
+import org.eclipse.golo.compiler.jgoloparser.JGSpecs;
 import org.eclipse.golo.compiler.parser.GoloASTNode;
 
 import static java.util.Collections.unmodifiableList;
@@ -34,7 +36,8 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
   private final List<String> parameterNames = new LinkedList<>();
   private final List<String> syntheticParameterNames = new LinkedList<>();
   private boolean varargs = false;
-  private String specification;
+  private String stringSpecification;
+  private JGSpecs specification;
   private Block block;
   private boolean synthetic = false;
   private boolean decorator = false;
@@ -182,14 +185,23 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
   public GoloFunction withSpecification (String spec) {
     String specif = "";
     if(spec != null){
-      specif+=spec;
+      specif=spec;
+      try {
+        System.out.println("Call Jgolo parser on : \""+spec+"\"");
+        this.specification = FolJGoloParser.parse(spec);
+      } catch(Exception e) {
+        System.err.println("Readed specification : \""+spec+"\"");
+        e.printStackTrace();
+        this.specification=null;
+      }
     }
-    this.specification = specif;
+
+    this.stringSpecification = specif;
     return this;
   }
 
   public String getSpecification() {
-    return this.specification;
+    return this.stringSpecification;
   }
 
 
