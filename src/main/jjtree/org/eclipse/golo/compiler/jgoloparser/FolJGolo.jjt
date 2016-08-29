@@ -65,7 +65,7 @@ import java.util.ArrayList;
  * <p>
  * <pre>
  * term  ::= var | fun | fun terms
- * terms ::= "(" term ")" | "(" term "," terms ")"
+ * terms ::= "(" term ")" | "(" term "," terms ")" !! Problème parentheses inclues dans la récursion
  * form  ::=   pred
  *           | pred terms
  *           | "!" form
@@ -82,9 +82,63 @@ import java.util.ArrayList;
  *
  * specs ::= spec | spec specs
  * </pre>
+
+
+ * Objective grammar :
+ *  Pbs : Function are without parenthesis, miss internal why functions (nth, Some, list, ..), miss internal why types (int, int32, ...)
+ * <pre>
+
+ * term   ::= "(" arith ")"
+ *           | var
+ *           | fun params
+ *           | litteral
+ * adds   ::=  literals "*" adds
+ *           | literals "/" adds
+ *           | literals "%" adds
+ *           | literals
+
+ * arith  ::=  adds "*" arith
+ *           | adds "/" arith
+ *           | adds "%" arith
+ *           | adds
+
+ * comp   ::=  arith "<"  comp
+ *           | arith "<=" comp
+ *           | arith ">"  comp
+ *           | arith ">=" comp
+ *           | arith "="  comp
+ *           | arith "<>" comp
+ *           | arith
+
+ * clause ::=  comp
+ *           | var
+ *           | pred params
+
+ * param  ::= clause | arith
+ * params ::=  "()" | "(" param { "," param } * ")"
+
+ * decl   ::=  var ":" type {"," var ":" type }*
+
+ * form   ::=  clause
+ *           | "(" form ")"
+ *           | "!" form
+ *           | form "/\" form
+ *           | form "\/" form
+ *           | form "->" form
+ *           | "exists " decl "." form
+ *           | "forall " decl "." form
+
+ * spec   ::=  ensures "{" form "}"
+ *           | requires "{" form "}"
+ *           | invariant "{" form "}"
+ *           | variant "{" form "}"
+ *
+ * specs ::= spec | spec specs
+ * </pre>
+
  * </p>
 
- TODO : no distinction between variables and fun through first lettter capitlisation
+ TODO : no distinction between variables and fun through first letter capitlisation
  TODO : add spec and specs
  TODO : add arithmetics
  TODO : ...
