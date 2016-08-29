@@ -3,59 +3,39 @@
 [![Build Status](https://travis-ci.org/eclipse/golo-lang.svg?branch=master)](https://travis-ci.org/eclipse/golo-lang)
 [ ![Download](https://api.bintray.com/packages/golo-lang/downloads/distributions/images/download.svg) ](https://bintray.com/golo-lang/downloads/distributions/_latestVersion)
 
-# Golo, a lightweight dynamic language for the JVM.
-# Hardened Golo: Have more confidence in your Golo.
+# Hardened Golo: Have more confidence into your Golo.
 
 > The world didn't need another JVM language.
 > So we built yet another one.  A simple one.
 
-Golo is a simple dynamic, weakly-typed language for the JVM.
+Hardened Golo is fork of [Golo](https://github.com/eclipse/golo-lang) adding some static analysis in order to gain confidence into a Golo program.
+Since Golo is a dynamic, weakly-typed language for the JVM, Hardened Golo do not support the whole language.
 
-Built from day 1 with `invokedynamic`, Golo takes advantage of the latest advances of
-the JVM. It is also a showcase on how to build a language runtime with `invokedynamic`.
-
-Eclipse Golo was originally being developed as part of the research activities of the
+Hardened Golo is developed as part of the research activities of the
 [DynaMid](http://dynamid.citi-lab.fr/) group of the
 [CITI Laboratory](http://www.citi-lab.fr/) at
 [INSA-Lyon](http://www.insa-lyon.fr/).
 
-Golo is a _mature_ Eclipse Technology Project.
 
 ## Links
 
-* Website: [http://golo-lang.org/](http://golo-lang.org/)
-* Twitter: [@golo_lang](https://twitter.com/golo_lang)
-* Eclipse PMI: [https://projects.eclipse.org/projects/technology.golo](https://projects.eclipse.org/projects/technology.golo)
-* GitHub: [https://github.com/eclipse/golo-lang](https://github.com/eclipse/golo-lang)
-* Issues: [https://github.com/eclipse/golo-lang/issues](https://github.com/eclipse/golo-lang/issues)
-* Mailing-list: [https://dev.eclipse.org/mailman/listinfo/golo-dev](https://dev.eclipse.org/mailman/listinfo/golo-dev)
-* Commits + new issues mailing-list: [https://dev.eclipse.org/mailman/listinfo/golo-commit](https://dev.eclipse.org/mailman/listinfo/golo-commit)
-* Wiki: [https://github.com/eclipse/golo-lang/wiki](https://github.com/eclipse/golo-lang/wiki)
-* Gitter.im chats: [https://gitter.im/eclipse/golo-lang](https://gitter.im/eclipse/golo-lang)
-* StackOverflow: [questions with the `golo-lang` tag](http://stackoverflow.com/questions/tagged/golo-lang)
+* Hardened Golo GitHub: [https://github.com/nstouls/HardenedGolo](https://github.com/nstouls/HardenedGolo)
+* Hardened Golo Wiki: [https://github.com/nstouls/HardenedGolo/wiki](https://github.com/nstouls/HardenedGolo/wiki)
 
-## Getting Golo
-
-Golo follows the [semantic versioning scheme](http://semver.org).
-
-Go to the [Golo downloads page](http://golo-lang.org/download/) for general download instructions.
-
-You can fetch Golo from Maven central under the `org.eclipse.golo` group.
-
-We also provide [Docker](http://docker.com/) images based on Ubuntu 14.04 and Java SE 8:
-`docker pull jponge/golo-lang` ([https://registry.hub.docker.com/u/jponge/golo-lang/](https://registry.hub.docker.com/u/jponge/golo-lang/))
+* Golo Website: [http://golo-lang.org/](http://golo-lang.org/)
+* Golo GitHub: [https://github.com/eclipse/golo-lang](https://github.com/eclipse/golo-lang)
 
 ## Building HardenedGolo
 
 ### Dependencies
 
-#### Golo
+#### Hardened Golo
 
-Golo is built with [Gradle](https://gradle.org).
+Hardened Golo is built with [Gradle](https://gradle.org).
 Since the source code contains the [Gradle wrapper scripts](https://docs.gradle.org/current/userguide/gradle_wrapper.html),
 the build can bootstrap itself by downloading the qualified Gradle version from the Internet.
 
-Golo needs Java SE 8 or more to build and run.
+Hardened Golo needs Java SE 8 or more to build and run.
 
 #### Why and provers
 
