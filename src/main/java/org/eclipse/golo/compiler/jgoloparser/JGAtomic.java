@@ -53,6 +53,7 @@ public class JGAtomic implements JGFormula {
     }
 
     public int arity() {
+        if(terms==null) return 0;
         return terms.size();
     }
 
@@ -62,7 +63,7 @@ public class JGAtomic implements JGFormula {
 
     @Override
     public void substitute(JGTerm term, JGTerm forVar) {
-        for (int i = 0; i < terms.size(); i++) {
+        for (int i = 0; i < arity(); i++) {
             terms.get(i).substitute(term, forVar);
         }
     }
@@ -80,22 +81,24 @@ public class JGAtomic implements JGFormula {
 
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder();
-        result.append(predicate.toString());
-
         if (!isPropositional()) {
-            result.append("(");
+          StringBuilder result = new StringBuilder();
+          result.append("( ");
+          result.append(predicate.toString());
+          result.append(" ");
 
-            int i;
-            for (i = 0; i < terms.size() - 1; i++) {
-                result.append(terms.get(i).toString());
-                result.append(",");
-            }
-            result.append(terms.get(i).toString());
+          for (int i = 0; i < arity(); i++) {
+              result.append(terms.get(i).toString());
+              result.append(" ");
+          }
 
-            result.append(")");
+          result.append(")");
+          return result.toString();
+
+        } else {
+
+          return predicate.toString();
         }
 
-        return result.toString();
     }
 }

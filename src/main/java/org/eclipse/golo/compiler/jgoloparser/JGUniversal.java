@@ -61,6 +61,6 @@ public class JGUniversal implements JGFormula {
 
     @Override
     public String toString() {
-        return "forall " + quantifiedVar.toString() + ". " + subformula.toString();
+        return "forall " + quantifiedVar.toString() + ". ( " + subformula.toString()+" )";
     }
 }

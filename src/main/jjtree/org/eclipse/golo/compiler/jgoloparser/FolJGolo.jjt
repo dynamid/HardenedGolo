@@ -85,16 +85,15 @@ import java.util.ArrayList;
 
 
  * Objective grammar :
- *  Pbs : Function are without parenthesis, miss internal why functions (nth, Some, list, ..), miss internal why types (int, int32, ...)
  * <pre>
 
  * term   ::= "(" arith ")"
  *           | var
- *           | fun params
- *           | litteral
- * adds   ::=  literals "*" adds
- *           | literals "/" adds
- *           | literals "%" adds
+ *           | fun tuple
+ *           | litteral value
+
+ * adds   ::=  literals "+" adds
+ *           | literals "-" adds
  *           | literals
 
  * arith  ::=  adds "*" arith
@@ -102,31 +101,34 @@ import java.util.ArrayList;
  *           | adds "%" arith
  *           | adds
 
- * comp   ::=  arith "<"  comp
- *           | arith "<=" comp
- *           | arith ">"  comp
- *           | arith ">=" comp
- *           | arith "="  comp
- *           | arith "<>" comp
- *           | arith
+ * comp   ::=  arith "<"  arith
+ *           | arith "<=" arith
+ *           | arith ">"  arith
+ *           | arith ">=" arith
+ *           | arith "="  arith
+ *           | arith "<>" arith
 
- * clause ::=  comp
- *           | var
- *           | pred params
 
- * param  ::= clause | arith
- * params ::=  "()" | "(" param { "," param } * ")"
+ * param  ::=  form | arith
+ * tuple  ::=  param *
 
  * decl   ::=  var ":" type {"," var ":" type }*
 
+
+ * clause ::=  comp
+ *           | var
+ *           | pred tuple
+ *           | "not" form
+ *           | "exists " decl "." "(" form ")"
+ *           | "forall " decl "." "(" form ")"
+
+
  * form   ::=  clause
  *           | "(" form ")"
- *           | "!" form
- *           | form "/\" form
- *           | form "\/" form
- *           | form "->" form
- *           | "exists " decl "." form
- *           | "forall " decl "." form
+ *           | clause "/\"  form
+ *           | clause "\/"  form
+ *           | clause "->"  form   // !! have to be more prioritized.
+ *           | clause "<->" form   // !! have to be more prioritized.
 
  * spec   ::=  ensures "{" form "}"
  *           | requires "{" form "}"
@@ -138,9 +140,14 @@ import java.util.ArrayList;
 
  * </p>
 
- TODO : no distinction between variables and fun through first letter capitlisation
- TODO : add spec and specs
+ DONE : no distinction between variables and fun through first letter capitlisation
+ DONE : form is left AND right recurive ...
+ DONE : Function are without parenthesis (check the no parameter case)
+ TODO : add internal why functions (nth, Some, list, Array ...)
+ TODO : add internal why types (int, int32, ...)
  TODO : add arithmetics
+ TODO : Param has to return a param (clause or arith) instead of a term.
+ TODO : authorize interval (1 < x <12)
  TODO : ...
  *
  * @author Dominic Scheurer
@@ -173,6 +180,7 @@ SKIP :
 |	"\f"
 }
 
+/* removed : | < VARIABLE: < UPPER > (< INNER >)* > */
 TOKEN :
 {
 	< OPEN: "(" >
@@ -193,8 +201,7 @@ TOKEN :
 | < VARIANT: "variant" >
 
 
-| < VARIABLE: < UPPER > (< INNER >)* >
-| < ID: < LOWER > (< INNER >)* >
+| < ID: (< LOWER > | <UPPER> | <UNDER> ) (< INNER >)* >
 
 |   < #INNER: (<UPPER> | <UNDER> | <LOWER> | <DIGIT>) >
 |   < #DIGIT: ["0" - "9"] >
@@ -265,22 +272,90 @@ String specType() :
 
 
 
+
+
+/*
+ * form   ::=  "(" form ")"
+ *           | clause "->"  form   // !! devrait être plus prioritaire.
+ *           | clause "<->" form  // !! devrait être plus prioritaire.
+ *           | clause "/\"  form
+ *           | clause "\/"  form
+ *           | clause
+ */
+
 JGFormula formula() :
+{
+    JGFormula innerA, innerB;
+}
+{
+    < OPEN >
+    innerA = formula()
+    < CLOSE >
+    {
+      return innerA;
+    }
+
+  | innerA = clause()
+	(
+	      < IMP >
+        innerB = formula()
+        {
+            return new JGImplicative(innerA, innerB);
+        }
+
+      | < DISJ >
+        innerB = formula()
+        {
+            return new JGDisjunctive(innerA, innerB);
+        }
+
+      | < CONJ >
+        innerB = formula()
+        {
+            return new JGConjunctive(innerA, innerB);
+        }
+
+      |
+      {
+        return innerA;
+      }
+	)
+}
+
+
+
+/*
+ * clause ::=  comp
+ *           | var
+ *           | pred params
+ *           | "not" form
+ *           | "exists " decl "." "(" form ")"  // Je vais imposer ces parenthèses
+ *           | "forall " decl "." "(" form ")"  // Je vais imposer ces parenthèses
+ */
+JGFormula clause() :
 {
     JGFormula form;
 }
 {
 	(
-	    form = atomic()      |
+	    form = predicate()   |
 	    form = negated()     |
 	    form = existential() |
-	    form = universal()   |
-	    form = binary()
+	    form = universal()
 	)
 	{
 		return form;
 	}
 }
+
+
+
+
+
+
+
+
+
 
 JGExistential existential() :
 {
@@ -289,12 +364,14 @@ JGExistential existential() :
 }
 {
 	< EXIST >
-	< VARIABLE >
+	< ID >
 	{
 	    qfdVar = new JGTerm(token.image);
 	}
 	< DOT >
+	< OPEN >
 	inner = formula()
+	< CLOSE >
 	{
 	    return new JGExistential(inner, qfdVar);
 	}
@@ -307,12 +384,14 @@ JGUniversal universal() :
 }
 {
 	< ALL >
-	< VARIABLE >
+	< ID >
 	{
 	    qfdVar = new JGTerm(token.image);
 	}
 	< DOT >
+	< OPEN >
 	inner = formula()
+	< CLOSE >
 	{
 	    return new JGUniversal(inner, qfdVar);
 	}
@@ -330,38 +409,7 @@ JGNegated negated() :
 	}
 }
 
-JGFormula binary() :
-{
-    JGFormula innerA, innerB;
-}
-{
-    < OPEN >
-	innerA = formula()
-	(
-	    < IMP >
-		innerB = formula()
-		< CLOSE >
-		{
-		    return new JGImplicative(innerA, innerB);
-		}
-    |
-	    < DISJ >
-		innerB = formula()
-		< CLOSE >
-		{
-		    return new JGDisjunctive(innerA, innerB);
-		}
-	|
-	    < CONJ >
-		innerB = formula()
-		< CLOSE >
-		{
-		    return new JGConjunctive(innerA, innerB);
-		}
-	)
-}
-
-JGAtomic atomic() :
+JGAtomic predicate() :
 {
     JGPredicate p;
     ArrayList<JGTerm> arguments;
@@ -385,24 +433,22 @@ JGAtomic atomic() :
 
 JGTerm term() :
 {
-    String function;
-    ArrayList<JGTerm> arguments = new ArrayList<JGTerm>();
+    String name;
+    ArrayList<JGTerm> arguments = null;
 }
 {
-    < VARIABLE >
+    < ID >
     {
-        return new JGTerm(token.image);
+      name = token.image;
     }
-  | < ID >
+    arguments = tuple()
     {
-    	function = token.image;
+        if(arguments == null) {
+            return new JGTerm(name);
+        } else {
+            return new JGTerm(name, arguments);
+        }
     }
-    (
-		arguments = tuple()
-    )?
-    {
-    	return new JGTerm(function, arguments);
-	}
 }
 
 ArrayList<JGTerm> tuple() :
@@ -411,19 +457,39 @@ ArrayList<JGTerm> tuple() :
     JGTerm t;
 }
 {
-    < OPEN >
-    t = term()
+    t = param()
     {
         tuple.add(t);
     }
     (
-        < COMMA > t = term()
+        t = param()
         {
             tuple.add(t);
         }
     )*
+    {
+        if(tuple.size()==0) return null;
+		    return tuple;
+    }
+
+}
+
+
+JGTerm param() :
+{
+    JGFormula form;
+}
+{
+    < ID >
+    {
+        return new JGTerm(token.image);
+    }
+/*
+  | < OPEN >
+    form = formula()
     < CLOSE >
     {
-		return tuple;
-    }
+        return form;
+    }*/
 }
+

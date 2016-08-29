@@ -61,6 +61,6 @@ public class JGExistential implements JGFormula {
 
     @Override
     public String toString() {
-        return "exists " + quantifiedVar.toString() + ". " + subformula.toString();
+        return "exists " + quantifiedVar.toString() + ". ( " + subformula.toString()+" )";
     }
 }

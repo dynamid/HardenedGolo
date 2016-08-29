@@ -60,6 +60,6 @@ public class JGImplicative implements JGFormula {
 
     @Override
     public String toString() {
-        return "(" + premise.toString() + " -> " + conclusion.toString() + ")";
+        return "( " + premise.toString() + " -> " + conclusion.toString() + " )";
     }
 }
