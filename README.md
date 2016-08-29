@@ -4,6 +4,7 @@
 [ ![Download](https://api.bintray.com/packages/golo-lang/downloads/distributions/images/download.svg) ](https://bintray.com/golo-lang/downloads/distributions/_latestVersion)
 
 # Golo, a lightweight dynamic language for the JVM.
+# Hardened Golo: Have more confidence in your Golo.
 
 > The world didn't need another JVM language.
 > So we built yet another one.  A simple one.
@@ -44,9 +45,11 @@ You can fetch Golo from Maven central under the `org.eclipse.golo` group.
 We also provide [Docker](http://docker.com/) images based on Ubuntu 14.04 and Java SE 8:
 `docker pull jponge/golo-lang` ([https://registry.hub.docker.com/u/jponge/golo-lang/](https://registry.hub.docker.com/u/jponge/golo-lang/))
 
-## Building Golo
+## Building HardenedGolo
 
 ### Dependencies
+
+#### Golo
 
 Golo is built with [Gradle](https://gradle.org).
 Since the source code contains the [Gradle wrapper scripts](https://docs.gradle.org/current/userguide/gradle_wrapper.html),
@@ -54,7 +57,11 @@ the build can bootstrap itself by downloading the qualified Gradle version from 
 
 Golo needs Java SE 8 or more to build and run.
 
-### Building
+#### Why and provers
+
+Hardened Golo produces some WhyML files, that have to be verified with [Why3](http://why3.lri.fr/) tool. This tool could be easily installed on Linux and OSX Systems. You will next need to install some external provers.
+
+### Building Golo
 
 Common tasks:
 
