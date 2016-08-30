@@ -38,8 +38,9 @@ package org.eclipse.golo.compiler.jgoloparser;
 
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 
-//import org.eclipse.golo.compiler.jgoloparser.*;
 
 /**
  * <p>
@@ -87,19 +88,18 @@ import java.util.ArrayList;
  * Objective grammar :
  * <pre>
 
- * term   ::= "(" arith ")"
- *           | var
- *           | fun tuple
- *           | litteral value
+ * term   ::= "(" form ")"
+ *           | id ( id | literal ) * // includes variables and preidcates
+ *           | literal
 
- * adds   ::=  literals "+" adds
- *           | literals "-" adds
- *           | literals
+ * mult   ::=  term "*" mult
+ *           | term "/" mult
+ *           | term "%" mult
+ *           | term
 
- * arith  ::=  adds "*" arith
- *           | adds "/" arith
- *           | adds "%" arith
- *           | adds
+ * arith  ::=  mult "+" arith
+ *           | mult "-" arith
+ *           | mult
 
  * comp   ::=  arith "<"  arith
  *           | arith "<=" arith
@@ -107,28 +107,23 @@ import java.util.ArrayList;
  *           | arith ">=" arith
  *           | arith "="  arith
  *           | arith "<>" arith
+ *           | arith   // no distinction according to the type in the grammar.
 
-
- * param  ::=  form | arith
- * tuple  ::=  param *
 
  * decl   ::=  var ":" type {"," var ":" type }*
 
-
  * clause ::=  comp
- *           | var
- *           | pred tuple
  *           | "not" form
  *           | "exists " decl "." "(" form ")"
  *           | "forall " decl "." "(" form ")"
 
 
- * form   ::=  clause
- *           | "(" form ")"
+ * form   ::=  clause "->"  form  // !! has to be more prioritized.
+ *           | clause "<->" form  // !! has to be more prioritized.
  *           | clause "/\"  form
  *           | clause "\/"  form
- *           | clause "->"  form   // !! have to be more prioritized.
- *           | clause "<->" form   // !! have to be more prioritized.
+ *           | clause
+
 
  * spec   ::=  ensures "{" form "}"
  *           | requires "{" form "}"
@@ -140,14 +135,16 @@ import java.util.ArrayList;
 
  * </p>
 
- DONE : no distinction between variables and fun through first letter capitlisation
- DONE : form is left AND right recurive ...
+ DONE : no distinction between variables and fun through first letter capitalisation
+ DONE : Rules are right recursive only ...
  DONE : Function are without parenthesis (check the no parameter case)
+ DONE : add arithmetics
+ TODO : check unused Java Types and parser rules
+ TODO : check if JGTerm, JGAtomic, JGPredicate and JGAtomicArtich are all needs
+ TODO : authorizes interval (1 < x <12)
+ TODO : Add a type attribute into primitives (boolean vs int vs float) and propagates to parent nodes. Make parser crashes if incompatible types found.
  TODO : add internal why functions (nth, Some, list, Array ...)
  TODO : add internal why types (int, int32, ...)
- TODO : add arithmetics
- TODO : Param has to return a param (clause or arith) instead of a term.
- TODO : authorize interval (1 < x <12)
  TODO : ...
  *
  * @author Dominic Scheurer
@@ -195,13 +192,93 @@ TOKEN :
 |	< ALL: "forall" >
 |	< EXIST: "exists" >
 
-| < ENSURES: "ensures" >
-| < REQUIRES: "requires" >
-| < INVARIANT: "invariant" >
-| < VARIANT: "variant" >
+| < SPECTITLE: < ENSURES > | < REQUIRES > | < INVARIANT > | < VARIANT > >
+
+|   < #ENSURES: "ensures" >
+|   < #REQUIRES: "requires" >
+|   < #INVARIANT: "invariant" >
+|   < #VARIANT: "variant" >
+}
 
 
-| < ID: (< LOWER > | <UPPER> | <UNDER> ) (< INNER >)* >
+
+// Operators
+TOKEN :
+{
+  < COMPOP: < LTOP > | <LEOP> | <GTOP> | <GEOP> | <DIFFOP> | <EQOP>  >
+
+|   < #LTOP: "<" >
+|   < #LEOP: "<=" >
+|   < #GTOP: ">" >
+|   < #GEOP: ">=" >
+|   < #DIFFOP: "<>" >
+|   < #EQOP: "=" >
+
+
+| < ADDSOP: < ADDOP > | <MINUSOP>  >
+
+|   < #ADDOP: "+" >
+|   < #MINUSOP: "-" >
+
+
+| < MULTSOP: < MULTOP > | <DIVOP> | <MODOP>  >
+
+|   < #MULTOP: "*" >
+|   < #DIVOP: "/" >
+|   < #MODOP: "%" >
+
+}
+
+
+
+
+// Literals
+TOKEN :
+{
+  < NUMBER: ("-")? ["0"-"9"] (("_")? ["0"-"9"])* >
+| < LONG_NUMBER: <NUMBER> "_L" >
+| < BIGINTEGER: <NUMBER> "_B" >
+| < FLOATING_NUMBER: <NUMBER> ("." ["0"-"9"] (("_")? ["0"-"9"])*)? ("e" ("-")? (["0"-"9"])+)? >
+| < FLOAT: <FLOATING_NUMBER> "_F" >
+| < BIGDECIMAL: <FLOATING_NUMBER> "_B" >
+| < STRING: "\"" (
+    (~["\"", "\\", "\n", "\r"])
+    |
+    ("\\"
+      (["n", "t", "b", "r", "f", "\\", "\"", "\'"])
+      |
+      ( "u"
+        (["0"-"9"]|["a"-"f"])
+        (["0"-"9"]|["a"-"f"])
+        (["0"-"9"]|["a"-"f"])
+        (["0"-"9"]|["a"-"f"])
+      )
+    )
+  )* "\"" >
+| < CHAR: "'" (
+    (~["\'", "\\", "\n", "\r"])
+    |
+    ("\\"
+      (["n", "t", "b", "r", "f", "\\", "\"", "\'"])
+      |
+      ( "u"
+        (["0"-"9"]|["a"-"f"])
+        (["0"-"9"]|["a"-"f"])
+        (["0"-"9"]|["a"-"f"])
+        (["0"-"9"]|["a"-"f"])
+      )
+    )
+  ) "'" >
+| < NULL: "null" >
+| < TRUE: "true" >
+| < FALSE: "false" >
+}
+
+
+
+TOKEN :
+{
+  < ID: (< LOWER > | <UPPER> | <UNDER> ) (< INNER >)* >
 
 |   < #INNER: (<UPPER> | <UNDER> | <LOWER> | <DIGIT>) >
 |   < #DIGIT: ["0" - "9"] >
@@ -210,6 +287,9 @@ TOKEN :
 |   < #UNDER: "_"  >
 
 }
+
+
+
 
 JGSpecs parse() :
 {
@@ -223,6 +303,10 @@ JGSpecs parse() :
     }
 }
 
+
+/*
+ * specs ::= spec | spec specs
+ */
 JGSpecs specs() :
 {
     JGSpecs specs = new JGSpecs();
@@ -241,6 +325,15 @@ JGSpecs specs() :
 }
 
 
+
+
+
+/*
+ * spec   ::=  ensures   "{" form "}"
+ *           | requires  "{" form "}"
+ *           | invariant "{" form "}"
+ *           | variant   "{" form "}"
+ */
 JGSpec spec() :
 {
     JGFormula form;
@@ -248,7 +341,10 @@ JGSpec spec() :
 }
 {
 
-    specType=specType()
+    < SPECTITLE >
+    {
+        specType=token.image;
+    }
     "{"
     form=formula()
     "}"
@@ -258,79 +354,53 @@ JGSpec spec() :
 }
 
 
-String specType() :
-{
-    String specType;
-}
-{
-
-    < ENSURES >   {return "ensures"; } |
-    < REQUIRES >  {return "requires"; } |
-    < INVARIANT > {return "invariant"; } |
-    < VARIANT >   {return "variant"; }
-}
-
-
-
 
 
 /*
- * form   ::=  "(" form ")"
- *           | clause "->"  form   // !! devrait être plus prioritaire.
- *           | clause "<->" form  // !! devrait être plus prioritaire.
+ * form   ::=  clause "->"  form  // !! has to be more prioritized.
+ *           | clause "<->" form  // !! has to be more prioritized.
  *           | clause "/\"  form
  *           | clause "\/"  form
  *           | clause
  */
-
 JGFormula formula() :
 {
     JGFormula innerA, innerB;
 }
 {
-    < OPEN >
-    innerA = formula()
-    < CLOSE >
+  innerA = clause()
+	(
+      < IMP >
+      innerB = formula()
+      {
+          return new JGImplicative(innerA, innerB);
+      }
+
+    | < DISJ >
+      innerB = formula()
+      {
+          return new JGDisjunctive(innerA, innerB);
+      }
+
+    | < CONJ >
+      innerB = formula()
+      {
+          return new JGConjunctive(innerA, innerB);
+      }
+
+    |
     {
       return innerA;
     }
-
-  | innerA = clause()
-	(
-	      < IMP >
-        innerB = formula()
-        {
-            return new JGImplicative(innerA, innerB);
-        }
-
-      | < DISJ >
-        innerB = formula()
-        {
-            return new JGDisjunctive(innerA, innerB);
-        }
-
-      | < CONJ >
-        innerB = formula()
-        {
-            return new JGConjunctive(innerA, innerB);
-        }
-
-      |
-      {
-        return innerA;
-      }
 	)
 }
 
 
-
 /*
- * clause ::=  comp
- *           | var
- *           | pred params
+ * clause ::=  comp        // includes inlined predicate
  *           | "not" form
- *           | "exists " decl "." "(" form ")"  // Je vais imposer ces parenthèses
- *           | "forall " decl "." "(" form ")"  // Je vais imposer ces parenthèses
+ *           | "exists " decl "." "(" form ")"
+ *           | "forall " decl "." "(" form ")"
  */
 JGFormula clause() :
 {
@@ -338,10 +408,10 @@ JGFormula clause() :
 }
 {
 	(
-	    form = predicate()   |
 	    form = negated()     |
 	    form = existential() |
-	    form = universal()
+	    form = universal()   |
+	    form = comparison()
 	)
 	{
 		return form;
@@ -377,6 +447,7 @@ JGExistential existential() :
 	}
 }
 
+
 JGUniversal universal() :
 {
     JGFormula inner;
@@ -397,6 +468,7 @@ JGUniversal universal() :
 	}
 }
 
+
 JGNegated negated() :
 {
     JGFormula inner;
@@ -408,6 +480,306 @@ JGNegated negated() :
 	    return new JGNegated(inner);
 	}
 }
+
+
+
+
+
+/*
+ * comp   ::=  arith "<"  arith
+ *           | arith "<=" arith
+ *           | arith ">"  arith
+ *           | arith ">=" arith
+ *           | arith "="  arith
+ *           | arith "<>" arith
+ *           | arith   // no distinction according to the type in the grammar.
+ */
+JGFormula comparison() :
+{
+    JGFormula innerA, innerB;
+    String symbol;
+    JGAtomic pred;
+}
+{
+  innerA = arith()
+  (
+      < COMPOP >
+      {
+        symbol = token.image;
+      }
+      innerB = arith()
+      {
+        return new JGCompare(innerA, innerB, symbol);
+      }
+
+    |
+      {
+        return innerA;  // TODO : have to convert it into a formula
+      }
+  )
+}
+
+
+
+
+
+/*
+ * arith  ::=  mult "+" arith
+ *           | mult "-" arith
+ *           | mult
+ */
+JGFormula arith() :
+{
+  JGFormula innerA, innerB;
+  String symbol;
+}
+{
+  innerA = mult()
+  (
+    < ADDSOP >
+    {
+      symbol = token.image;
+    }
+    innerB = arith()
+    {
+      return new JGAdditive(innerA, innerB, symbol);
+    }
+  |
+    {
+      return innerA;
+    }
+  )
+}
+
+
+
+/*
+ * mult   ::=  term "*" mult
+ *           | term "/" mult
+ *           | term "%" mult
+ *           | term
+ */
+JGFormula mult() :
+{
+  JGFormula innerA, innerB;
+  String symbol;
+}
+{
+    innerA = term()
+    (
+      < MULTSOP >
+      {
+        symbol = token.image;
+      }
+      innerB = mult()
+      {
+        return new JGMultiplicative(innerA, innerB, symbol);
+      }
+    |
+      {
+        return innerA;
+      }
+  )
+}
+
+
+
+
+
+
+/*
+ * term   ::= "(" form ")"
+ *           | id ( id | literal | "(" form ")" ) * // includes variables and predicates
+              TODO : inner formula not supported at the moment
+ *           | literal
+ */
+JGFormula term() :
+{
+    String name;
+    ArrayList<JGTerm> arguments = new ArrayList<JGTerm>();
+    JGFormula inner;
+    JGLiteral lit;
+}
+{
+    < OPEN >
+    inner = formula()
+    < CLOSE >
+    {
+      return inner;
+    }
+
+  | < ID >
+    {
+      name = token.image;
+    }
+    (
+        < ID >
+        {
+          arguments.add(new JGTerm(token.image));
+        }
+
+      | lit = Literal()
+        {
+          arguments.add(lit);
+        }
+
+/*      | < OPEN >
+        inner = formula()
+        < CLOSE >
+        {
+           .....
+        }*/
+    )*
+    {
+      return new JGAtomicArith(name, arguments);
+    }
+
+  | lit = Literal()
+    {
+      return new JGAtomicArith(lit);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+JGLiteral Literal():
+{
+  Object value;
+}
+{
+  (
+      value=BigDecimalLiteral()
+    | value=BigIntegerLiteral()
+    | value=FloatLiteral()
+    | value=DoubleLiteral()
+    | value=LongLiteral()
+    | value=IntegerLiteral()
+    | <NULL>
+      {
+         value=null;
+      }
+    | <TRUE>
+      {
+         value=Boolean.TRUE;
+      }
+    | <FALSE>
+      {
+         value=Boolean.FALSE;
+      }
+  )
+  {
+    return new JGLiteral(value);
+  }
+}
+
+
+
+
+
+Long LongLiteral() :
+{
+  Token literal;
+}
+{
+  literal=<LONG_NUMBER>
+  {
+    String image = literal.image.substring(0, literal.image.length() - 2);
+    return Long.valueOf(image.replace("_",""));
+  }
+}
+
+BigInteger BigIntegerLiteral():
+{
+  Token literal;
+}
+{
+  literal=<BIGINTEGER>
+  {
+    String image = literal.image.substring(0, literal.image.length() - 2);
+    return new BigInteger(image.replace("_",""));
+  }
+}
+
+
+Integer IntegerLiteral():
+{
+  Token literal;
+}
+{
+  literal=<NUMBER>
+  {
+    String image = literal.image.replace("_","");
+    return Integer.valueOf(image);
+  }
+}
+
+Double DoubleLiteral() :
+{
+  Token literal;
+}
+{
+  literal=<FLOATING_NUMBER>
+  {
+    return Double.valueOf(literal.image.replace("_", ""));
+  }
+}
+
+Float FloatLiteral() :
+{
+  Token literal;
+}
+{
+  literal=<FLOAT>
+  {
+    return Float.valueOf(literal.image
+        .substring(0, literal.image.length() - 2)
+        .replace("_", ""));
+  }
+}
+
+BigDecimal BigDecimalLiteral() :
+{
+  Token literal;
+}
+{
+  literal=<BIGDECIMAL>
+  {
+    return new BigDecimal(literal.image
+        .substring(0, literal.image.length() - 2)
+        .replace("_", ""));
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* ========================== Still used ? =========================== */
+
+
 
 JGAtomic predicate() :
 {
@@ -426,45 +798,29 @@ JGAtomic predicate() :
 		}
     |
 		{
-		    return new JGAtomic(p);
+		    return new JGAtomic(p, null);
 		}
 	)
 }
 
-JGTerm term() :
+
+
+/*
+ * tuple  ::=  arith +
+ */
+ArrayList<JGTerm> tuple() :
 {
-    String name;
-    ArrayList<JGTerm> arguments = null;
+    ArrayList<JGTerm> tuple = new ArrayList<JGTerm>();
 }
 {
     < ID >
     {
-      name = token.image;
-    }
-    arguments = tuple()
-    {
-        if(arguments == null) {
-            return new JGTerm(name);
-        } else {
-            return new JGTerm(name, arguments);
-        }
-    }
-}
-
-ArrayList<JGTerm> tuple() :
-{
-    ArrayList<JGTerm> tuple = new ArrayList<JGTerm>();
-    JGTerm t;
-}
-{
-    t = param()
-    {
-        tuple.add(t);
+        tuple.add(new JGTerm(token.image));
     }
     (
-        t = param()
+        < ID >
         {
-            tuple.add(t);
+            tuple.add(new JGTerm(token.image));
         }
     )*
     {
@@ -475,21 +831,5 @@ ArrayList<JGTerm> tuple() :
 }
 
 
-JGTerm param() :
-{
-    JGFormula form;
-}
-{
-    < ID >
-    {
-        return new JGTerm(token.image);
-    }
-/*
-  | < OPEN >
-    form = formula()
-    < CLOSE >
-    {
-        return form;
-    }*/
-}
+
 

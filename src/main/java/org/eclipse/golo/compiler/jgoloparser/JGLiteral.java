@@ -18,27 +18,23 @@
 
 package org.eclipse.golo.compiler.jgoloparser;
 
-/*
- * Mutable type. Used instead of a simple String in order to allow the share of mutable names.
- */
+import java.util.HashSet;
+import java.util.Set;
 
-public class JGPredicate {
-    private String identifier = "";
+public class JGLiteral extends JGTerm {
+  private Object value = null;
 
-    public JGPredicate(String identifier) {
-        this.identifier = identifier;
-    }
+  public JGLiteral(Object value) {
+    super(value.toString());
+    this.value = value;
+  }
 
-    public String getIdentifier() {
-        return identifier;
-    }
 
-    public void setIdentifier(String identifier) {
-        this.identifier = identifier;
-    }
+  public Object getValue() {
+      return value;
+  }
 
-    @Override
-    public String toString() {
-        return identifier;
-    }
+  public void setValue(Object value) {
+      this.value=value;
+  }
 }

@@ -18,27 +18,9 @@
 
 package org.eclipse.golo.compiler.jgoloparser;
 
-/*
- * Mutable type. Used instead of a simple String in order to allow the share of mutable names.
+/**
+ * Basic interface for Arithmetic elements
+ *
+ * @author Nicolas Stouls
  */
-
-public class JGPredicate {
-    private String identifier = "";
-
-    public JGPredicate(String identifier) {
-        this.identifier = identifier;
-    }
-
-    public String getIdentifier() {
-        return identifier;
-    }
-
-    public void setIdentifier(String identifier) {
-        this.identifier = identifier;
-    }
-
-    @Override
-    public String toString() {
-        return identifier;
-    }
-}
+public interface JGArith extends JGVariableContainer {}
