@@ -235,7 +235,7 @@ TOKEN :
 // Literals
 TOKEN :
 {
-  < NUMBER: ("-")? ["0"-"9"] (("_")? ["0"-"9"])* >
+  < NUMBER: (<ADDSOP>)? ["0"-"9"] (("_")? ["0"-"9"])* >   // !!!! Pb de lecture des entiers négatifs dans une expression
 | < LONG_NUMBER: <NUMBER> "_L" >
 | < BIGINTEGER: <NUMBER> "_B" >
 | < FLOATING_NUMBER: <NUMBER> ("." ["0"-"9"] (("_")? ["0"-"9"])*)? ("e" ("-")? (["0"-"9"])+)? >
@@ -499,19 +499,16 @@ JGFormula comparison() :
     JGFormula innerA, innerB;
     String symbol;
     JGAtomic pred;
+    Token token = null;
 }
 {
   innerA = arith()
   (
-      < COMPOP >
+      token=<COMPOP> innerB=arith()
       {
         symbol = token.image;
-      }
-      innerB = arith()
-      {
         return new JGCompare(innerA, innerB, symbol);
       }
-
     |
       {
         return innerA;  // TODO : have to convert it into a formula
@@ -588,10 +585,10 @@ JGFormula mult() :
 
 
 /*
- * term   ::= "(" form ")"
- *           | id ( id | literal | "(" form ")" ) * // includes variables and predicates
+ * term   ::=  (+ | -)? "(" form ")"
+ *           | (+ | -)? id ( id | literal | "(" form ")" ) * // includes variables and predicates
               TODO : inner formula not supported at the moment
- *           | literal
+ *           | (+ | -)? literal
  */
 JGFormula term() :
 {
@@ -599,45 +596,54 @@ JGFormula term() :
     ArrayList<JGTerm> arguments = new ArrayList<JGTerm>();
     JGFormula inner;
     JGLiteral lit;
+    Token sign = null;
 }
 {
-    < OPEN >
-    inner = formula()
-    < CLOSE >
-    {
-      return inner;
-    }
-
-  | < ID >
-    {
-      name = token.image;
-    }
     (
-        < ID >
-        {
-          arguments.add(new JGTerm(token.image));
-        }
+      sign = < ADDSOP >
+    ) ?
+    (
+      < OPEN >
+      inner = formula()
+      < CLOSE >
+      {
+        if (sign!= null && sign.image.trim().equals(MINUSOP)) return new JGMinus(inner);
+        return inner;
+      }
 
-      | lit = Literal()
-        {
-          arguments.add(lit);
-        }
+    | < ID >
+      {
+        name = token.image;
+      }
+      (
+          < ID >
+          {
+            arguments.add(new JGTerm(token.image));
+          }
 
-/*      | < OPEN >
-        inner = formula()
-        < CLOSE >
-        {
-           .....
-        }*/
-    )*
-    {
-      return new JGAtomicArith(name, arguments);
-    }
+        | lit = Literal()
+          {
+            arguments.add(lit);
+          }
 
-  | lit = Literal()
-    {
-      return new JGAtomicArith(lit);
-    }
+  /*      | < OPEN >
+          inner = formula()
+          < CLOSE >
+          {
+             .....
+          }*/
+      )*
+      {
+        if (sign!= null && sign.image.trim().equals(MINUSOP)) return new JGMinus(new JGAtomicArith(name, arguments));
+        return new JGAtomicArith(name, arguments);
+      }
+
+    | lit = Literal()
+      {
+        if (sign!= null && sign.image.trim().equals(MINUSOP)) return new JGMinus(new JGAtomicArith(lit));
+        return new JGAtomicArith(lit);
+      }
+    )
 }
 
 

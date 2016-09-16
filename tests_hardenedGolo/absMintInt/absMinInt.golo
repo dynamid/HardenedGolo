@@ -16,12 +16,14 @@ module test.MinInt
 
 #function myAbs = |x| {
     # spec/ ensures{
-    function myAbs = |x| spec/ requires{
-                                  x>= -2147483647
-                              }
-                              ensures{
-                               (result >= 0) /\
-                               (result = x \/ result = -x)}
+    function myAbs = |x| spec/
+                                ensures{
+                                    (result >= 0) /\
+                                    (result = x \/ result = -x)}
+                                requires{
+                                    x >= -2147483647
+                                }
+
                      /spec {
 	if (x < 0){
 		return (0 - x)
