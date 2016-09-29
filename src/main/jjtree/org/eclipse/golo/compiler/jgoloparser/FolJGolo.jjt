@@ -607,7 +607,7 @@ JGFormula term() :
       inner = formula()
       < CLOSE >
       {
-        if (sign!= null && sign.image.trim().equals(MINUSOP)) return new JGMinus(inner);
+        if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(inner);
         return inner;
       }
 
@@ -634,13 +634,13 @@ JGFormula term() :
           }*/
       )*
       {
-        if (sign!= null && sign.image.trim().equals(MINUSOP)) return new JGMinus(new JGAtomicArith(name, arguments));
+        if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(new JGAtomicArith(name, arguments));
         return new JGAtomicArith(name, arguments);
       }
 
     | lit = Literal()
       {
-        if (sign!= null && sign.image.trim().equals(MINUSOP)) return new JGMinus(new JGAtomicArith(lit));
+        if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(new JGAtomicArith(lit));
         return new JGAtomicArith(lit);
       }
     )

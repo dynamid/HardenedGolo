@@ -32,7 +32,7 @@ public class JGMinus implements JGFormula {
 
   @Override
   public String toString() {
-      return " ( - "+inner.toString()+" ) ";
+      return " ( -"+inner.toString()+" ) ";
   }
 
   @Override
