@@ -587,13 +587,12 @@ JGFormula mult() :
 /*
  * term   ::=  (+ | -)? "(" form ")"
  *           | (+ | -)? id ( id | literal | "(" form ")" ) * // includes variables and predicates
-              TODO : inner formula not supported at the moment
  *           | (+ | -)? literal
  */
 JGFormula term() :
 {
     String name;
-    ArrayList<JGTerm> arguments = new ArrayList<JGTerm>();
+    ArrayList<JGFormula> arguments = new ArrayList<JGFormula>();
     JGFormula inner;
     JGLiteral lit;
     Token sign = null;
@@ -603,46 +602,46 @@ JGFormula term() :
       sign = < ADDSOP >
     ) ?
     (
-      < OPEN >
-      inner = formula()
-      < CLOSE >
-      {
-        if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(inner);
-        return inner;
-      }
+        < OPEN >
+        inner = formula()
+        < CLOSE >
+        {
+            if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(inner);
+            return inner;
+        }
 
-    | < ID >
-      {
-        name = token.image;
-      }
-      (
-          < ID >
-          {
-            arguments.add(new JGTerm(token.image));
-          }
+    |   < ID >
+        {
+          name = token.image;
+        }
+        (
+            < ID >
+            {
+              arguments.add(new JGTerm(token.image));
+            }
 
-        | lit = Literal()
-          {
-            arguments.add(lit);
-          }
+          |   lit = Literal()
+              {
+                  arguments.add(lit);
+              }
 
-  /*      | < OPEN >
-          inner = formula()
-          < CLOSE >
-          {
-             .....
-          }*/
-      )*
-      {
-        if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(new JGAtomicArith(name, arguments));
-        return new JGAtomicArith(name, arguments);
-      }
+          |   < OPEN >
+              inner = formula()
+              < CLOSE >
+              {
+                 arguments.add(inner);
+              }
+        )*
+        {
+          if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(new JGTerm(name, arguments));
+          return new JGTerm(name, arguments);
+        }
 
-    | lit = Literal()
-      {
-        if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(new JGAtomicArith(lit));
-        return new JGAtomicArith(lit);
-      }
+    |   lit = Literal()
+        {
+            if (sign!= null && sign.toString().trim().equals("-")) return new JGMinus(new JGTerm(lit));
+            return new JGTerm(lit);
+        }
     )
 }
 

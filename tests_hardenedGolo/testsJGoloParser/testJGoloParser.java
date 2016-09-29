@@ -27,6 +27,10 @@ public class testJGoloParser {
         }
         try {
             testNumber++;
+            String testNbStr = ""+testNumber;
+            while (testNbStr.length()<3) {
+                testNbStr=" "+testNbStr;
+            }
             JGSpecs specs = FolJGoloParser.parse(formula);
             String raw = specs.toString();
             String res = raw.replace("\n"," ").replace("\r"," ").replace("  "," ").trim();
@@ -36,7 +40,7 @@ public class testJGoloParser {
 
             // If verbose or FAIL
             verbose = verbose || !status;
-            println("Test "+testNumber+" ("+title+") : "+((status)?"ok":((expectedRes.equals(""))?"INCONCLUSIVE":"FAIL")), verbose);
+            println("Test "+testNbStr+" ("+title+") : "+((status)?"ok":((expectedRes.equals(""))?"INCONCLUSIVE":"FAIL")), verbose);
             println("  Initial formula             : "+formula, verbose);
             println("  Interpreted as (raw)        : "+raw, verbose);
             println("                 (normalized) : "+res, verbose);
@@ -45,10 +49,14 @@ public class testJGoloParser {
             // If NOT verbose
             //  Title could be reduced only if no any problem occurs
             if(title.length()>TITLE_LENGTH) { title=title.substring(0,TITLE_LENGTH-3)+"..."; }
-            println("Test "+testNumber+" ("+title+") : "+((status)?"PASS":"FAIL"),!verbose);
+            println("Test "+testNbStr+" ("+title+") : "+((status)?"PASS":"FAIL"),!verbose);
 
         } catch(Exception e) {
-            println("Test "+testNumber+" ("+title+") : FAIL", true);
+            String testNbStr = ""+testNumber;
+            while (testNbStr.length()<3) {
+                testNbStr=" "+testNbStr;
+            }
+            println("Test "+testNbStr+" ("+title+") : FAIL", true);
             println("  Initial formula             : "+formula, true);
             println("", verbose);
             e.printStackTrace();
@@ -73,23 +81,21 @@ public class testJGoloParser {
              "-> (q c \\/ !r    ) }","ensures { ( forall X. ( (( p X Y ) /\\ exists Y. ( ( p Y X ) )) ) -> (( q c ) \\/ !r) ) }");
 
         makeTest("Unary minus", "ensures{\n x >= -2147483647 }","ensures { (x >= -2147483647) }");
-        makeTest("Failing formula 1", "ensures{\n (result >= 0) /\\ \n (result = x \\/ result = x)} \n requires{ \n x >= 2147483647 \n }",
-                                      "ensures { ((result >= 0) /\\ ((result = x) \\/ (result = x))) } requires { (x >= 2147483647) }");
+        makeTest("Unary minus 1", "ensures{\n (result >= 0) /\\ \n (result = x \\/ result = x)} \n requires{ \n x >= 2147483647 \n }",
+                                  "ensures { ((result >= 0) /\\ ((result = x) \\/ (result = x))) } requires { (x >= 2147483647) }");
 
-        makeTest("Failing formula 2", "ensures{result = -x} ","ensures { (result = ( -x ) ) }");
-        makeTest("Failing formula 3", "ensures{\n (result = x \\/ (result = -x))} ", "ensures { ((result = x) \\/ (result = ( -x ) )) }");
+        makeTest("Unary minus 2", "ensures{result = -x} ","ensures { (result = ( -x ) ) }");
+        makeTest("Unary minus 3", "ensures{\n (result = x \\/ (result = -x))} ", "ensures { ((result = x) \\/ (result = ( -x ) )) }");
 
-        makeTest("Failing formula n", "ensures{\n (result >= 0) /\\ \n (result = x \\/ result = -x)} \n requires{ \n x >= -2147483647 \n }",
-                                      "ensures { ((result >= 0) /\\ ((result = x) \\/ (result = ( -x ) ))) } requires { (x >= -2147483647) }");
+        makeTest("Unary minus 4", "ensures{\n (result >= 0) /\\ \n (result = x \\/ result = -x)} \n requires{ \n x >= -2147483647 \n }",
+                                  "ensures { ((result >= 0) /\\ ((result = x) \\/ (result = ( -x ) ))) } requires { (x >= -2147483647) }");
 
+        makeTest("Unary minus 5 as parameter", "ensures{\n f (-x) }",
+                                               "ensures { ( f ( -x ) ) }");
 
-
-
-        System.out.println();
-        System.out.println("=============");
-        System.out.println("!!Actuellement faux car formules en paramètre non encore fait.");
         makeTest("Formula parametrized with formula", "ensures {"+
-             "p Y (f X Y)) }");
+                         "p Y (f X Y) }",
+             "ensures { ( p Y ( f X Y ) ) }");
         //formula.substitute(new JGTerm("d"), new JGTerm("Y"));
         //System.out.println("After a substitution : "+formula);
     }
