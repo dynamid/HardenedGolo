@@ -498,7 +498,6 @@ JGFormula comparison() :
 {
     JGFormula innerA, innerB;
     String symbol;
-    JGAtomic pred;
     Token token = null;
 }
 {
@@ -766,74 +765,6 @@ BigDecimal BigDecimalLiteral() :
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-/* ========================== Still used ? =========================== */
-
-
-
-JGAtomic predicate() :
-{
-    JGPredicate p;
-    ArrayList<JGTerm> arguments;
-}
-{
-	< ID >
-	{
-	    p = new JGPredicate(token.image);
-	}
-	(
-		arguments = tuple()
-		{
-		    return new JGAtomic(p, arguments);
-		}
-    |
-		{
-		    return new JGAtomic(p, null);
-		}
-	)
-}
-
-
-
-/*
- * tuple  ::=  arith +
- */
-ArrayList<JGTerm> tuple() :
-{
-    ArrayList<JGTerm> tuple = new ArrayList<JGTerm>();
-}
-{
-    < ID >
-    {
-        tuple.add(new JGTerm(token.image));
-    }
-    (
-        < ID >
-        {
-            tuple.add(new JGTerm(token.image));
-        }
-    )*
-    {
-        if(tuple.size()==0) return null;
-		    return tuple;
-    }
-
-}
 
 
 
