@@ -139,8 +139,8 @@ import java.math.BigInteger;
  DONE : Rules are right recursive only ...
  DONE : Function are without parenthesis (check the no parameter case)
  DONE : add arithmetics
+ DONE : check if JGTerm, JGAtomic, JGPredicate and JGAtomicArtich are all needs
  TODO : check unused Java Types and parser rules
- TODO : check if JGTerm, JGAtomic, JGPredicate and JGAtomicArtich are all needs
  TODO : authorizes interval (1 < x <12)
  TODO : Add a type attribute into primitives (boolean vs int vs float) and propagates to parent nodes. Make parser crashes if incompatible types found.
  TODO : add internal why functions (nth, Some, list, Array ...)

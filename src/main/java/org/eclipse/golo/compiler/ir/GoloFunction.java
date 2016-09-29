@@ -187,7 +187,7 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
     if(spec != null){
       specif=spec;
       try {
-        System.out.println("Call Jgolo parser on : \""+spec+"\"");
+//        System.out.println("Call Jgolo parser on : \""+spec+"\"");
         this.specification = FolJGoloParser.parse(spec);
       } catch(Exception e) {
         System.err.println("Readed specification : \""+spec+"\"");

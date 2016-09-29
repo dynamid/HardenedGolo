@@ -87,7 +87,7 @@ public class testJGoloParser {
         makeTest("Unary minus 2", "ensures{result = -x} ","ensures { (result = ( -x ) ) }");
         makeTest("Unary minus 3", "ensures{\n (result = x \\/ (result = -x))} ", "ensures { ((result = x) \\/ (result = ( -x ) )) }");
 
-        makeTest("Unary minus 4", "ensures{\n (result >= 0) /\\ \n (result = x \\/ result = -x)} \n requires{ \n x >= -2147483647 \n }",
+        makeTest("Inequation formula", "ensures{\n (result >= 0) /\\ \n (result = x \\/ result = -x)} \n requires{ \n x >= -2147483647 \n }",
                                   "ensures { ((result >= 0) /\\ ((result = x) \\/ (result = ( -x ) ))) } requires { (x >= -2147483647) }");
 
         makeTest("Unary minus 5 as parameter", "ensures{\n f (-x) }",
@@ -96,6 +96,7 @@ public class testJGoloParser {
         makeTest("Formula parametrized with formula", "ensures {"+
                          "p Y (f X Y) }",
              "ensures { ( p Y ( f X Y ) ) }");
+
         //formula.substitute(new JGTerm("d"), new JGTerm("Y"));
         //System.out.println("After a substitution : "+formula);
     }
