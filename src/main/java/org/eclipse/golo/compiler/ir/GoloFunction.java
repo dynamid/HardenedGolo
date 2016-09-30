@@ -201,7 +201,9 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
   }
 
   public String getSpecification() {
-    return this.stringSpecification;
+      if(specification==null) return "";
+      return this.specification.toString();
+      //return this.stringSpecification;
   }
 
 
