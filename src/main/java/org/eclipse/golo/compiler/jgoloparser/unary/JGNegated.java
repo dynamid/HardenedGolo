@@ -1,7 +1,8 @@
-/* Copyright 2016 INSA Lyon
- * Inspired from "FirstOrderParser" by Dominic Scheurer.
+/* Copyright 2014 Dominic Scheurer
  *
- * HardenedGolo is free software: you can redistribute it and/or modify
+ * This file is part of FirstOrderParser.
+ *
+ * FirstOrderParser is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
@@ -14,13 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.eclipse.golo.compiler.jgoloparser.unary;
 
-package org.eclipse.golo.compiler.jgoloparser;
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
 
-import java.util.Set;
+public class JGNegated extends JGUnary {
 
-public class JGAdditive extends JGMultiplicative {
-    public JGAdditive(JGFormula innerA, JGFormula innerB, String symbol) {
-      super(innerA,innerB,symbol);
-    }
+  public JGNegated(JGFormula formula) {
+    super(formula, Operator.NEGATIVE);
+  }
 }

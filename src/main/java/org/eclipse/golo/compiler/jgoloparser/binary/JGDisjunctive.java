@@ -15,22 +15,13 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.eclipse.golo.compiler.jgoloparser;
+package org.eclipse.golo.compiler.jgoloparser.binary;
 
-public class JGLiteral extends JGTerm {
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
 
-  private Object value;
+public class JGDisjunctive extends JGBinary {
 
-  public JGLiteral(Object value) {
-    super(value.toString());
-    this.value = value;
-  }
-
-  public Object getValue() {
-      return value;
-  }
-
-  public void setValue(Object value) {
-      this.value = value;
+  public JGDisjunctive(JGFormula left, JGFormula right) {
+    super(left, Operator.DISJUNCTIVE, right);
   }
 }

@@ -15,22 +15,14 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.eclipse.golo.compiler.jgoloparser;
+package org.eclipse.golo.compiler.jgoloparser.quantify;
 
-public class JGLiteral extends JGTerm {
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.JGTerm;
 
-  private Object value;
+public class JGExistential extends JGQuantifier {
 
-  public JGLiteral(Object value) {
-    super(value.toString());
-    this.value = value;
-  }
-
-  public Object getValue() {
-      return value;
-  }
-
-  public void setValue(Object value) {
-      this.value = value;
+  public JGExistential(JGFormula formula, JGTerm quantifiedVariable) {
+    super(Quantifier.EXISTS, quantifiedVariable, formula);
   }
 }

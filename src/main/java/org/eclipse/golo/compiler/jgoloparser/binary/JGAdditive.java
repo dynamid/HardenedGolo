@@ -1,8 +1,7 @@
-/* Copyright 2014 Dominic Scheurer
+/* Copyright 2016 INSA Lyon
+ * Inspired from "FirstOrderParser" by Dominic Scheurer.
  *
- * This file is part of FirstOrderParser.
- *
- * FirstOrderParser is free software: you can redistribute it and/or modify
+ * HardenedGolo is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation, either version 3 of the License, or
  * (at your option) any later version.
@@ -15,12 +14,13 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.eclipse.golo.compiler.jgoloparser.binary;
 
-package org.eclipse.golo.compiler.jgoloparser;
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
 
-/**
- * Basic interface for Arithmetic elements
- *
- * @author Nicolas Stouls
- */
-public interface JGArith extends JGVariableContainer {}
+public class JGAdditive extends JGBinary {
+
+  public JGAdditive(JGFormula left, JGFormula right, String operator) {
+    super(left, Operator.parse(operator), right);
+  }
+}

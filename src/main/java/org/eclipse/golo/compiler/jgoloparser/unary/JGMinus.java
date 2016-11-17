@@ -15,38 +15,28 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.eclipse.golo.compiler.jgoloparser.unary;
 
-package org.eclipse.golo.compiler.jgoloparser;
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
 
-import java.util.Set;
+public class JGMinus extends JGUnary {
 
-public class JGNegated implements JGFormula {
-    private JGFormula subformula = null;
+  public JGMinus(JGFormula inner) {
+    super(inner, Operator.MINUS);
+  }
 
-    public JGFormula getSubformula() {
-        return subformula;
-    }
+  @Override
+  public int hashCode() {
+    return toString().hashCode();
+  }
 
-    public void setSubformula(JGFormula subformula) {
-        this.subformula = subformula;
-    }
+  @Override
+  public boolean equals(Object obj) {
+    return obj instanceof JGMinus && toString().equals(obj.toString());
+  }
 
-    public JGNegated(JGFormula subformula) {
-        this.subformula = subformula;
-    }
-
-    @Override
-    public void substitute(JGTerm term, JGTerm forVar) {
-        subformula.substitute(term, forVar);
-    }
-
-    @Override
-    public Set<JGTerm> freeVars() {
-        return subformula.freeVars();
-    }
-
-    @Override
-    public String toString() {
-        return "!" + subformula.toString();
-    }
+  @Override
+  public String toString() {
+    return " ( " + super.toString() + " ) ";
+  }
 }
