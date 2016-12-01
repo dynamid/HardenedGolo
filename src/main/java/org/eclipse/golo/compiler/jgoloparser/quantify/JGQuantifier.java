@@ -26,19 +26,19 @@ abstract class JGQuantifier implements JGFormula {
 
   private Quantifier quantifier;
 
-  private JGTerm quantifiedVariable;
+  protected JGTerm quantifiedBy;
 
-  private JGFormula formula;
+  protected JGFormula formula;
 
-  JGQuantifier(Quantifier quantifier, JGTerm quantifiedVariable, JGFormula formula) {
-    this.quantifiedVariable = quantifiedVariable;
+  JGQuantifier(Quantifier quantifier, JGTerm quantifiedBy, JGFormula formula) {
+    this.quantifiedBy = quantifiedBy;
     this.quantifier = quantifier;
     this.formula = formula;
   }
 
   @Override
   public void substitute(JGTerm term, JGTerm forVar) {
-    if (!forVar.equals(quantifiedVariable)) {
+    if (!forVar.equals(quantifiedBy)) {
       formula.substitute(term, forVar);
     }
   }
@@ -46,13 +46,26 @@ abstract class JGQuantifier implements JGFormula {
   @Override
   public Set<JGTerm> freeVars() {
     Set<JGTerm> freeVars = new HashSet<>(formula.freeVars());
-    freeVars.remove(quantifiedVariable);
+    freeVars.remove(quantifiedBy);
     return freeVars;
   }
 
   @Override
+  public Type getType() {
+    return Type.OTHER;
+  }
+
+  public JGTerm getQuantifiedBy() {
+    return quantifiedBy;
+  }
+
+  public JGFormula getFormula() {
+    return formula;
+  }
+
+  @Override
   public String toString() {
-    return quantifier + " " + quantifiedVariable + ". ( " + formula + " )";
+    return quantifier + " " + quantifiedBy + ". ( " + formula + " )";
   }
 
   enum Quantifier {

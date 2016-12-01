@@ -7,14 +7,14 @@ public class JGSpecs {
 
   private static final String NEW_LINE = System.getProperty("line.separator");
 
-  private List<JGSpec> specList;
-
-  public  JGSpecs() {
-    specList = new LinkedList<>();
-  }
+  private List<JGSpec> specList = new LinkedList<>();
 
   public void add(JGSpec spec) {
     specList.add(spec);
+  }
+
+  public List<JGSpec> getSpecList() {
+    return specList;
   }
 
   @Override

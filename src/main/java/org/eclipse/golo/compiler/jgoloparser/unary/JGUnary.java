@@ -26,6 +26,10 @@ abstract class JGUnary implements JGFormula {
     return formula.freeVars();
   }
 
+  public JGFormula getFormula() {
+    return formula;
+  }
+
   @Override
   public String toString() {
     return operator + formula.toString();

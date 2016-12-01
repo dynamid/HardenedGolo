@@ -18,11 +18,22 @@
 package org.eclipse.golo.compiler.jgoloparser.unary;
 
 import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGMinus extends JGUnary {
 
   public JGMinus(JGFormula inner) {
     super(inner, Operator.MINUS);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
+  public Type getType() {
+    return Type.NUMERIC;
   }
 
   @Override

@@ -11,6 +11,10 @@ public class JGSpec {
     this.specType = specType;
   }
 
+  public JGFormula getFormula() {
+    return formula;
+  }
+
   @Override
   public String toString() {
     return specType + " { " + formula + " } ";

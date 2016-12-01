@@ -193,10 +193,13 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
     return this;
   }
 
-  String getSpecification() {
+  String getSpecificationString() {
       return specification == null ? "" : specification.toString();
   }
 
+  public JGSpecs getSpecification() {
+    return specification;
+  }
 
   // parameters and varargs -----------------------------------------------------------------------
   public GoloFunction varargs(boolean isVarargs) {

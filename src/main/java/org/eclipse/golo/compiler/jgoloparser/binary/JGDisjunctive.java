@@ -18,10 +18,21 @@
 package org.eclipse.golo.compiler.jgoloparser.binary;
 
 import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGDisjunctive extends JGBinary {
 
   public JGDisjunctive(JGFormula left, JGFormula right) {
     super(left, Operator.DISJUNCTIVE, right);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
+  public Type getType() {
+    return Type.BOOLEAN;
   }
 }

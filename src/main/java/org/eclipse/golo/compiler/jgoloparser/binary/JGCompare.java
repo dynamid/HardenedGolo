@@ -17,10 +17,21 @@
 package org.eclipse.golo.compiler.jgoloparser.binary;
 
 import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGCompare extends JGBinary {
 
   public JGCompare(JGFormula left, JGFormula right, String operator) {
     super(left, Operator.parse(operator), right);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
+  public Type getType() {
+    return Type.BOOLEAN;
   }
 }

@@ -18,11 +18,12 @@ package org.eclipse.golo.compiler.jgoloparser.binary;
 
 import org.eclipse.golo.compiler.jgoloparser.JGFormula;
 import org.eclipse.golo.compiler.jgoloparser.JGTerm;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 import java.util.HashSet;
 import java.util.Set;
 
-abstract class JGBinary implements JGFormula {
+public abstract class JGBinary implements JGFormula {
 
   private JGFormula left;
 
@@ -34,6 +35,14 @@ abstract class JGBinary implements JGFormula {
     this.left = left;
     this.right = right;
     this.operator = operator;
+  }
+
+  public JGFormula getLeft() {
+    return left;
+  }
+
+  public JGFormula getRight() {
+    return right;
   }
 
   public String getOperator() {

@@ -27,7 +27,7 @@ public final class GoloModule extends GoloElement implements FunctionContainer {
   private final Set<NamedAugmentation> namedAugmentations = new LinkedHashSet<>();
   private final Set<Struct> structs = new LinkedHashSet<>();
   private final Set<Union> unions = new LinkedHashSet<>();
-  private final Set<LocalReference> moduleState = new LinkedHashSet<>();
+  private final Set<LocalReference> moduleStates = new LinkedHashSet<>();
   private GoloFunction moduleStateInitializer = null;
   private boolean hasMain = false;
 
@@ -168,7 +168,7 @@ public final class GoloModule extends GoloElement implements FunctionContainer {
   }
 
   private void addLocalState(LocalReference reference) {
-    moduleState.add(reference);
+    moduleStates.add(reference);
     makeParentOf(reference);
   }
 
@@ -194,10 +194,10 @@ public final class GoloModule extends GoloElement implements FunctionContainer {
     for (NamedAugmentation augmentation : namedAugmentations) {
       augmentation.accept(visitor);
     }
-    for (LocalReference moduleState : moduleState) {
+    for (LocalReference moduleState : moduleStates) {
       moduleState.accept(visitor);
     }
-    for (GoloFunction function : new LinkedList<GoloFunction>(functions)) {
+    for (GoloFunction function : new LinkedList<>(functions)) {
       function.accept(visitor);
     }
   }

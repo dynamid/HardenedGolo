@@ -18,10 +18,21 @@
 package org.eclipse.golo.compiler.jgoloparser.unary;
 
 import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGNegated extends JGUnary {
 
   public JGNegated(JGFormula formula) {
     super(formula, Operator.NEGATIVE);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
+  public Type getType() {
+    return Type.BOOLEAN;
   }
 }

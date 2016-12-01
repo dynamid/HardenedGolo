@@ -19,10 +19,16 @@ package org.eclipse.golo.compiler.jgoloparser.quantify;
 
 import org.eclipse.golo.compiler.jgoloparser.JGFormula;
 import org.eclipse.golo.compiler.jgoloparser.JGTerm;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGUniversal extends JGQuantifier {
 
   public JGUniversal(JGFormula formula, JGTerm quantifiedVariable) {
     super(Quantifier.FORALL, quantifiedVariable, formula);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
   }
 }

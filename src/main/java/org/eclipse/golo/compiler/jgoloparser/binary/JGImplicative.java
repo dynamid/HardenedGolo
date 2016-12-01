@@ -18,10 +18,21 @@
 package org.eclipse.golo.compiler.jgoloparser.binary;
 
 import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGImplicative extends JGBinary {
 
   public JGImplicative(JGFormula premise, JGFormula conclusion) {
     super(premise, Operator.IMPLICATIVE, conclusion);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
+  public Type getType() {
+    return Type.BOOLEAN;
   }
 }

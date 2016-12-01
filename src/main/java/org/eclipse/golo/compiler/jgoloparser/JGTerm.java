@@ -18,6 +18,8 @@
 
 package org.eclipse.golo.compiler.jgoloparser;
 
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
@@ -30,6 +32,8 @@ public class JGTerm implements JGFormula {
 
   private ArrayList<JGFormula> innerTerms;
 
+  private Type type = Type.OTHER;
+
   public JGTerm(String name, ArrayList<JGFormula> innerTerms) {
     this.name = name;
     if (innerTerms != null && innerTerms.size() > 0) {
@@ -40,6 +44,12 @@ public class JGTerm implements JGFormula {
 
   public JGTerm(JGLiteral lit) {
     this(lit.toString());
+    Object value = lit.getValue();
+    if (Number.class.isInstance(value)) {
+      type = Type.NUMERIC;
+    } else if (Boolean.class.isInstance(value)) {
+      type = Type.BOOLEAN;
+    }
   }
 
   public JGTerm(String name) {
@@ -69,16 +79,20 @@ public class JGTerm implements JGFormula {
   }
 
   public boolean isConstant() {
-    return !isFunction && Character.isLowerCase(name.charAt(0));
-  }
-
-  public boolean isVariable() {
     return !isFunction && Character.isUpperCase(name.charAt(0));
   }
 
+  public boolean isVariable() {
+    return !isFunction && Character.isLowerCase(name.charAt(0));
+  }
 
   public boolean isFunction() {
     return isFunction;
+  }
+
+  @Override
+  public Type getType() {
+    return type;
   }
 
   @Override
@@ -109,7 +123,6 @@ public class JGTerm implements JGFormula {
 
     for (int i = 0; i < innerTerms.size(); i++) {
       JGFormula innerForm = innerTerms.get(i);
-
       if (innerForm instanceof JGTerm) {
         JGTerm innerTerm = (JGTerm) innerForm;
         if (!innerTerm.isVariable()) {
@@ -128,7 +141,7 @@ public class JGTerm implements JGFormula {
     HashSet<JGTerm> freeVars = new HashSet<>();
     for (JGFormula innerForm : innerTerms) {
       if (innerForm instanceof JGTerm) {
-        JGTerm innerTerm = (JGTerm) innerForm;
+        JGTerm innerTerm = (JGTerm)innerForm;
         if (innerTerm.isVariable()) {
           freeVars.add(innerTerm);
         } else {
@@ -142,12 +155,22 @@ public class JGTerm implements JGFormula {
   }
 
   @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
   public int hashCode() {
-    return toString().hashCode();
+    return name.hashCode();
   }
 
   @Override
   public boolean equals(Object obj) {
+    // FIXME check all possible variants
+    if (isFunction && obj instanceof JGTerm) {
+      JGTerm another = JGTerm.class.cast(obj);
+      return another.isFunction && type == another.type && name.equals(another.name) && arity() == another.arity();
+    }
     return obj instanceof JGTerm && toString().equals(obj.toString());
   }
 }
