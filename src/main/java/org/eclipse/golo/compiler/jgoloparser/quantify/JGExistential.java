@@ -23,8 +23,8 @@ import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGExistential extends JGQuantifier {
 
-  public JGExistential(JGFormula formula, JGTerm quantifiedVariable) {
-    super(Quantifier.EXISTS, quantifiedVariable, formula);
+  public JGExistential(JGTerm quantifiedVariable, JGTerm type, JGFormula formula) {
+    super(Quantifier.EXISTS, type, quantifiedVariable, formula);
   }
 
   @Override

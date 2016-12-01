@@ -26,14 +26,17 @@ abstract class JGQuantifier implements JGFormula {
 
   private Quantifier quantifier;
 
+  private JGTerm type;
+
   protected JGTerm quantifiedBy;
 
   protected JGFormula formula;
 
-  JGQuantifier(Quantifier quantifier, JGTerm quantifiedBy, JGFormula formula) {
+  JGQuantifier(Quantifier quantifier, JGTerm type, JGTerm quantifiedBy, JGFormula formula) {
     this.quantifiedBy = quantifiedBy;
     this.quantifier = quantifier;
     this.formula = formula;
+    this.type = type;
   }
 
   @Override
@@ -65,7 +68,7 @@ abstract class JGQuantifier implements JGFormula {
 
   @Override
   public String toString() {
-    return quantifier + " " + quantifiedBy + ". ( " + formula + " )";
+    return quantifier + " " + quantifiedBy + ":" + type + ". ( " + formula + " )";
   }
 
   enum Quantifier {

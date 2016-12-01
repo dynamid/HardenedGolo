@@ -23,8 +23,8 @@ import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
 public class JGUniversal extends JGQuantifier {
 
-  public JGUniversal(JGFormula formula, JGTerm quantifiedVariable) {
-    super(Quantifier.FORALL, quantifiedVariable, formula);
+  public JGUniversal(JGTerm quantifiedVariable, JGTerm type, JGFormula formula) {
+    super(Quantifier.FORALL, type, quantifiedVariable, formula);
   }
 
   @Override
