@@ -38,25 +38,25 @@ public class SymbolicTestCommand implements CliCommand{
   public void execute() throws Throwable {
     GoloCompiler compiler = new GoloCompiler();
     for (String file : files) {
-      verify(new File(file), compiler, destFile);
+      symtest(new File(file), compiler, destFile);
     }
   }
 
-  private void verify(File file, GoloCompiler compiler, String destFile) {
+  private void symtest(File file, GoloCompiler compiler, String destFile) {
     if (file.isDirectory()) {
       File[] directoryFiles = file.listFiles();
       if (directoryFiles != null) {
         for (File directoryFile : directoryFiles) {
-          verify(directoryFile, compiler, destFile);
+          symtest(directoryFile, compiler, destFile);
         }
       }
     } else if (file.getName().endsWith(".golo")) {
       try {
         if (verbose) {
-          System.out.println(">>> Verifying file `" + file.getAbsolutePath() + "`");
+          System.out.println(">>> Testing file `" + file.getAbsolutePath() + "`");
         }
         compiler.resetExceptionBuilder();
-        compiler.verify(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile, int32);
+        compiler.symtest(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile, int32);
       } catch (IOException e) {
         System.out.println("[error] " + file + " does not exist or could not be opened.");
       } catch (GoloCompilationException e) {
