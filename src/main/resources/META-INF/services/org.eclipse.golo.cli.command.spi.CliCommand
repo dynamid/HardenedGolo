@@ -17,3 +17,4 @@ org.eclipse.golo.cli.command.VersionCommand
 org.eclipse.golo.cli.command.CheckCommand
 org.eclipse.golo.cli.command.ShebangCommand
 org.eclipse.golo.cli.command.VerifyCommand
+org.eclipse.golo.cli.command.SymbolicTestCommand
