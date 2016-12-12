@@ -293,9 +293,9 @@ public class GoloCompiler {
     GoloModule goloModule = check(compilationUnit);
     int[] charsPerLine = countCharsPerLine(absolutePath);
     if (destFile == null) {
-      destFile = "result.test";
+      destFile = "symtest.res";
     } else if (destFile.isEmpty()) {
-      destFile = "result.test";
+      destFile = "symtest.res";
     }
     goloModule.accept(new IrSymbolicTestVisitor(absolutePath, charsPerLine, destFile, int32));
 
