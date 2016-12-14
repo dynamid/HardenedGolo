@@ -1,5 +1,8 @@
 package org.eclipse.golo.compiler.jgoloparser.visitor;
 
+import org.eclipse.golo.compiler.ir.GoloFunction;
+import org.eclipse.golo.compiler.ir.LocalReference;
+import org.eclipse.golo.compiler.ir.ReferenceTable;
 import org.eclipse.golo.compiler.jgoloparser.*;
 import org.eclipse.golo.compiler.jgoloparser.binary.*;
 import org.eclipse.golo.compiler.jgoloparser.quantify.JGExistential;
@@ -8,13 +11,27 @@ import org.eclipse.golo.compiler.jgoloparser.unary.JGMinus;
 import org.eclipse.golo.compiler.jgoloparser.unary.JGNegated;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import static org.eclipse.golo.compiler.jgoloparser.JGVariableContainer.Type;
 
 public class JGSpecTreeVisitor implements SpecTreeVisitor {
 
-  private final Map<JGTerm, Type> variables = new HashMap<>();
+  private static final Set<String> WHYML_TYPES = new HashSet<>();
+
+  static {
+    WHYML_TYPES.add("char");
+    WHYML_TYPES.add("byte");
+    WHYML_TYPES.add("short");
+    WHYML_TYPES.add("int");
+    WHYML_TYPES.add("long");
+    WHYML_TYPES.add("float");
+    WHYML_TYPES.add("double");
+  }
+
+  private ReferenceTable referenceTable;
 
   @Override
   public void visit(JGSpecs node) {
@@ -24,6 +41,15 @@ public class JGSpecTreeVisitor implements SpecTreeVisitor {
   @Override
   public void visit(JGSpec node) {
     node.getFormula().accept(this);
+  }
+
+  @Override
+  public void verify(GoloFunction function) {
+    JGSpecs specs = function.getSpecification();
+    if (specs != null) {
+      referenceTable = function.getBlock().getReferenceTable();
+      visit(specs);
+    }
   }
 
   @Override
@@ -59,11 +85,14 @@ public class JGSpecTreeVisitor implements SpecTreeVisitor {
     Type type = formula.getType();
     if (type != Type.NUMERIC) {
       if (formula instanceof JGTerm && type == Type.OTHER) {
-        type = variables.get(formula);
-        if (type == null) {
-          variables.put((JGTerm)formula, Type.NUMERIC);
-        } else if (type == Type.BOOLEAN) {
-          throw new ParseException(" is already defined as boolean variable and can't use as boolean");
+        LocalReference reference = referenceTable.get(((JGTerm) formula).getName());
+        if (reference != null) {
+          type = reference.getType();
+          if (type == null) {
+            reference.setType(Type.NUMERIC);
+          } else if (type == Type.BOOLEAN) {
+            throw new ParseException(" is already defined as boolean variable and can't use as boolean");
+          }
         }
       } else {
         throw new ParseException("isn't a numeric!");
@@ -104,11 +133,14 @@ public class JGSpecTreeVisitor implements SpecTreeVisitor {
     Type type = formula.getType();
     if (type != JGVariableContainer.Type.BOOLEAN) {
       if (formula instanceof JGTerm && type == Type.OTHER) {
-        type = variables.get(formula);
-        if (type == null) {
-          variables.put((JGTerm)formula, Type.BOOLEAN);
-        } else if (type == Type.NUMERIC) {
-          throw new ParseException(" is already defined as numeric and can't use as boolean");
+        LocalReference reference = referenceTable.get(((JGTerm) formula).getName());
+        if (reference != null) {
+          type = reference.getType();
+          if (type == null) {
+            reference.setType(Type.BOOLEAN);
+          } else if (type == Type.NUMERIC) {
+            throw new ParseException(" is already defined as boolean and can't use as numeric");
+          }
         }
       } else {
         throw new ParseException("isn't a boolean!");
@@ -119,7 +151,10 @@ public class JGSpecTreeVisitor implements SpecTreeVisitor {
   @Override
   public void visit(JGExistential node) {
     try {
-      visitBoolean(node.getQuantifiedBy());
+      if (!isAllowableWhyMLType(node.getTypeQuantifier())) {
+        System.err.println("Unsupported type of quantifier!");
+      }
+      visitBoolean(node.getFormula());
     } catch (ParseException e) {
       System.err.println("Quantified term of " + node + " " + e.getMessage());
     }
@@ -128,10 +163,17 @@ public class JGSpecTreeVisitor implements SpecTreeVisitor {
   @Override
   public void visit(JGUniversal node) {
     try {
-      visitBoolean(node.getQuantifiedBy());
+      if (isAllowableWhyMLType(node.getTypeQuantifier())) {
+        System.err.println("Unsupported type of quantifier!");
+      }
+      visitBoolean(node.getFormula());
     } catch (ParseException e) {
       System.err.println("Quantified term of " + node + " " + e.getMessage());
     }
+  }
+
+  private boolean isAllowableWhyMLType(JGTerm type) {
+    return WHYML_TYPES.contains(type.toString());
   }
 
   @Override
@@ -154,8 +196,5 @@ public class JGSpecTreeVisitor implements SpecTreeVisitor {
 
   @Override
   public void visit(JGTerm node) {
-    if (node.getType() == Type.OTHER && !variables.containsKey(node)) {
-      variables.put(node, null);
-    }
   }
 }

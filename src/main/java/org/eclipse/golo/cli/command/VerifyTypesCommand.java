@@ -7,6 +7,7 @@ import org.eclipse.golo.compiler.GoloCompilationException;
 import org.eclipse.golo.compiler.GoloCompiler;
 import org.eclipse.golo.compiler.ir.GoloFunction;
 import org.eclipse.golo.compiler.ir.GoloModule;
+import org.eclipse.golo.compiler.ir.IrTreeVisitAndCheckTypes;
 import org.eclipse.golo.compiler.jgoloparser.JGSpecs;
 import org.eclipse.golo.compiler.jgoloparser.visitor.JGSpecTreeVisitor;
 import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
@@ -58,13 +59,9 @@ public class VerifyTypesCommand implements CliCommand {
         GoloModule module = compiler.check(compilationUnit);
         SpecTreeVisitor booleanCheckVisitor = new JGSpecTreeVisitor();
         for (GoloFunction function : module.getFunctions()) {
-          JGSpecs specs = function.getSpecification();
-          if (specs != null) {
-            System.err.println("Verify specification: " + specs);
-            booleanCheckVisitor.visit(specs);
-            System.err.println();
-          }
+          booleanCheckVisitor.verify(function);
         }
+        new IrTreeVisitAndCheckTypes().visitModule(module);
       } catch (IOException e) {
         System.out.println("[error] " + file + " does not exist or could not be opened.");
       } catch (GoloCompilationException e) {

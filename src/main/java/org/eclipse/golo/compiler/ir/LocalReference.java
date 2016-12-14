@@ -9,6 +9,7 @@
 
 package org.eclipse.golo.compiler.ir;
 
+import org.eclipse.golo.compiler.jgoloparser.JGVariableContainer;
 import org.eclipse.golo.compiler.parser.GoloASTNode;
 
 public final class LocalReference extends GoloElement {
@@ -21,6 +22,7 @@ public final class LocalReference extends GoloElement {
   private final String name;
   private boolean synthetic = false;
   private int index = -1;
+  private JGVariableContainer.Type type;
 
   LocalReference(String name) {
     super();
@@ -100,6 +102,14 @@ public final class LocalReference extends GoloElement {
 
   public ReferenceLookup lookup() {
     return new ReferenceLookup(name);
+  }
+
+  public void setType(JGVariableContainer.Type type) {
+    this.type = type;
+  }
+
+  public JGVariableContainer.Type getType() {
+    return type;
   }
 
   @Override
