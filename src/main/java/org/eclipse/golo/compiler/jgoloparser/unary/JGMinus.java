@@ -15,47 +15,39 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.eclipse.golo.compiler.jgoloparser.unary;
 
-package org.eclipse.golo.compiler.jgoloparser;
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.Set;
-
-public class JGMinus implements JGFormula {
-  private JGFormula inner = null;
+public class JGMinus extends JGUnary {
 
   public JGMinus(JGFormula inner) {
-    this.inner=inner;
-  }
-
-
-  @Override
-  public String toString() {
-      return " ( -"+inner.toString()+" ) ";
+    super(inner, Operator.MINUS);
   }
 
   @Override
-  public void substitute(JGTerm term, JGTerm forVar) {
-    inner.substitute(term,forVar);
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
   }
 
   @Override
-  public Set<JGTerm> freeVars() {
-      return inner.freeVars();
+  public Type getType() {
+    return Type.NUMERIC;
   }
 
   @Override
   public int hashCode() {
-      return toString().hashCode();
+    return toString().hashCode();
   }
 
   @Override
   public boolean equals(Object obj) {
-      if (!(obj instanceof JGMinus)) {
-          return false;
-      } else {
-          return toString().equals(((JGMinus) obj).toString());
-      }
+    return obj instanceof JGMinus && toString().equals(obj.toString());
+  }
+
+  @Override
+  public String toString() {
+    return " ( " + super.toString() + " ) ";
   }
 }

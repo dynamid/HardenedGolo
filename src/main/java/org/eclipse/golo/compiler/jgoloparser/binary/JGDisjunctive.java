@@ -15,30 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.eclipse.golo.compiler.jgoloparser.binary;
 
-package org.eclipse.golo.compiler.jgoloparser;
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
-/*
- * Mutable type. Used instead of a simple String in order to allow the share of mutable names.
- */
+public class JGDisjunctive extends JGBinary {
 
-public class JGPredicate {
-    private String identifier = "";
+  public JGDisjunctive(JGFormula left, JGFormula right) {
+    super(left, Operator.DISJUNCTIVE, right);
+  }
 
-    public JGPredicate(String identifier) {
-        this.identifier = identifier;
-    }
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
 
-    public String getIdentifier() {
-        return identifier;
-    }
-
-    public void setIdentifier(String identifier) {
-        this.identifier = identifier;
-    }
-
-    @Override
-    public String toString() {
-        return identifier;
-    }
+  @Override
+  public Type getType() {
+    return Type.BOOLEAN;
+  }
 }

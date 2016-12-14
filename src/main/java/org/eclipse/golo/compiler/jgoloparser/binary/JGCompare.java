@@ -14,13 +14,24 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.eclipse.golo.compiler.jgoloparser.binary;
 
-package org.eclipse.golo.compiler.jgoloparser;
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
-import java.util.Set;
+public class JGCompare extends JGBinary {
 
-public class JGAdditive extends JGMultiplicative {
-    public JGAdditive(JGFormula innerA, JGFormula innerB, String symbol) {
-      super(innerA,innerB,symbol);
-    }
+  public JGCompare(JGFormula left, JGFormula right, String operator) {
+    super(left, Operator.parse(operator), right);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+
+  @Override
+  public Type getType() {
+    return Type.BOOLEAN;
+  }
 }
