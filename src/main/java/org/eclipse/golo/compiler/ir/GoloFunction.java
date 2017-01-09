@@ -377,7 +377,6 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
     return block.returnOnlyReference(visitor);
   }
 
-
   @Override
   protected void replaceElement(GoloElement original, GoloElement newElement) {
     throw cantReplace();

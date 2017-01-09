@@ -177,4 +177,5 @@ public final class ConditionalBranching extends GoloStatement implements Scope {
       throw cantReplace(original, newElement);
     }
   }
+
 }
