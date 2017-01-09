@@ -15,12 +15,20 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
+package org.eclipse.golo.compiler.jgoloparser.quantify;
 
-package org.eclipse.golo.compiler.jgoloparser;
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.JGTerm;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
-/**
- * Basic interface for Arithmetic elements
- *
- * @author Nicolas Stouls
- */
-public interface JGArith extends JGVariableContainer {}
+public class JGExistential extends JGQuantifier {
+
+  public JGExistential(JGTerm quantifiedVariable, JGTerm type, JGFormula formula) {
+    super(Quantifier.EXISTS, type, quantifiedVariable, formula);
+  }
+
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
+  }
+}

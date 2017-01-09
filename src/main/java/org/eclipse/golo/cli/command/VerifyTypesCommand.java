@@ -1,28 +1,31 @@
 package org.eclipse.golo.cli.command;
 
-/**
- * Created by Qifan ZHOU on 05/12/16.
- */
-
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import org.eclipse.golo.cli.command.spi.CliCommand;
 import org.eclipse.golo.compiler.GoloCompilationException;
 import org.eclipse.golo.compiler.GoloCompiler;
+import org.eclipse.golo.compiler.ir.GoloFunction;
+import org.eclipse.golo.compiler.ir.GoloModule;
+import org.eclipse.golo.compiler.ir.IrTreeVisitAndCheckTypes;
+import org.eclipse.golo.compiler.jgoloparser.JGSpecs;
+import org.eclipse.golo.compiler.jgoloparser.visitor.JGSpecTreeVisitor;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
+import org.eclipse.golo.compiler.parser.ASTCompilationUnit;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-@Parameters(commandNames = {"symtest"}, commandDescription = "Generates WhyML program from Golo source file")
-public class SymbolicTestCommand implements CliCommand{
+/**
+ * Performs validation types
+ */
+@Parameters(commandNames = {"verifyTypes"}, commandDescription = "Performs validation of types in the Golo expressions")
+public class VerifyTypesCommand implements CliCommand {
 
   @Parameter(names = "--files", variableArity = true, description = "Golo source files (*.golo and directories)", required = true)
   List<String> files = new LinkedList<>();
-
-  @Parameter(names = {"-o"}, description = "WHYML output file. If one already exists, it will be overwritten")
-  String destFile;
 
   @Parameter(names = {"--exit"}, description = "Exit on the first encountered error, or continue with the next file")
   boolean exit = false;
@@ -30,33 +33,35 @@ public class SymbolicTestCommand implements CliCommand{
   @Parameter(names = {"--verbose"}, description = "Be more verbose")
   boolean verbose = false;
 
-  @Parameter(names = {"--int32"}, description = "Consider bounded integers on 32bits")
-  boolean int32 = false;
-
-
   @Override
   public void execute() throws Throwable {
     GoloCompiler compiler = new GoloCompiler();
     for (String file : files) {
-      symtest(new File(file), compiler, destFile);
+      verify(new File(file), compiler);
     }
   }
 
-  private void symtest(File file, GoloCompiler compiler, String destFile) {
+  private void verify(File file, GoloCompiler compiler) {
     if (file.isDirectory()) {
       File[] directoryFiles = file.listFiles();
       if (directoryFiles != null) {
         for (File directoryFile : directoryFiles) {
-          symtest(directoryFile, compiler, destFile);
+          verify(directoryFile, compiler);
         }
       }
     } else if (file.getName().endsWith(".golo")) {
       try {
         if (verbose) {
-          System.out.println(">>> Testing file `" + file.getAbsolutePath() + "`");
+          System.out.println(">>> Verifying file `" + file.getAbsolutePath() + "`");
         }
         compiler.resetExceptionBuilder();
-        compiler.symtest(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile);
+        ASTCompilationUnit compilationUnit = compiler.parse(file.getAbsolutePath());
+        GoloModule module = compiler.check(compilationUnit);
+        SpecTreeVisitor booleanCheckVisitor = new JGSpecTreeVisitor();
+        for (GoloFunction function : module.getFunctions()) {
+          booleanCheckVisitor.verify(function);
+        }
+        new IrTreeVisitAndCheckTypes().visitModule(module);
       } catch (IOException e) {
         System.out.println("[error] " + file + " does not exist or could not be opened.");
       } catch (GoloCompilationException e) {

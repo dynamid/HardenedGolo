@@ -10,6 +10,7 @@
 package org.eclipse.golo.compiler;
 
 import org.eclipse.golo.compiler.ir.GoloModule;
+import org.eclipse.golo.compiler.ir.IrSymbolicTestVisitor;
 import org.eclipse.golo.compiler.ir.IrTreeVisitAndGenerate;
 import org.eclipse.golo.compiler.parser.ASTCompilationUnit;
 import org.eclipse.golo.compiler.parser.GoloOffsetParser;
@@ -276,5 +277,26 @@ public class GoloCompiler {
    */
   protected GoloParser createGoloParser(Reader sourceReader) {
     return new GoloOffsetParser(sourceReader);
+  }
+
+
+  /**
+   * Checks that the source code is minimally sound by converting a parse tree to an intermediate representation, and
+   * running a few classic visitors over it. Then generate WhyML code for verification.
+   *
+   * @param compilationUnit the source parse tree.
+   * @param destFile the destination WhyML file.
+   * @return the intermediate representation of the source.
+   * @throws GoloCompilationException if an error exists in the source represented by the input parse tree.
+   */
+  public final GoloModule symtest(ASTCompilationUnit compilationUnit, String absolutePath, String destFile) throws IOException{
+    GoloModule goloModule = check(compilationUnit);
+    int[] charsPerLine = countCharsPerLine(absolutePath);
+
+    destFile = "symtest.res";
+
+    goloModule.accept(new IrSymbolicTestVisitor(absolutePath, charsPerLine, destFile));
+
+    return goloModule;
   }
 }

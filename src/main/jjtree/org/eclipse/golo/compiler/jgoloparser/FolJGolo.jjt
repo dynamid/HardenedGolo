@@ -40,6 +40,10 @@ import java.io.StringReader;
 import java.util.ArrayList;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import org.eclipse.golo.compiler.jgoloparser.binary.*;
+import org.eclipse.golo.compiler.jgoloparser.quantify.*;
+import org.eclipse.golo.compiler.jgoloparser.unary.*;
+import org.eclipse.golo.compiler.jgoloparser.visitor.*;
 
 
 /**
@@ -184,7 +188,7 @@ TOKEN :
 |	< CLOSE: ")" >
 |	< COMMA: "," >
 |	< DOT: "." >
-
+| < COLON: ":" >
 |	< NEG: "!" >
 |	< CONJ: "/\\" >
 |	< DISJ: "\\/" >
@@ -421,16 +425,11 @@ JGFormula clause() :
 
 
 
-
-
-
-
-
-
 JGExistential existential() :
 {
     JGFormula inner;
     JGTerm qfdVar;
+    JGTerm type;
 }
 {
 	< EXIST >
@@ -438,12 +437,17 @@ JGExistential existential() :
 	{
 	    qfdVar = new JGTerm(token.image);
 	}
+	< COLON >
+	< ID >
+	{
+	    type = new JGTerm(token.image);
+	}
 	< DOT >
 	< OPEN >
 	inner = formula()
 	< CLOSE >
 	{
-	    return new JGExistential(inner, qfdVar);
+	    return new JGExistential(qfdVar, type, inner);
 	}
 }
 
@@ -452,6 +456,7 @@ JGUniversal universal() :
 {
     JGFormula inner;
     JGTerm qfdVar;
+    JGTerm type;
 }
 {
 	< ALL >
@@ -459,12 +464,17 @@ JGUniversal universal() :
 	{
 	    qfdVar = new JGTerm(token.image);
 	}
+	< COLON >
+  < ID >
+  {
+      type = new JGTerm(token.image);
+  }
 	< DOT >
 	< OPEN >
 	inner = formula()
 	< CLOSE >
 	{
-	    return new JGUniversal(inner, qfdVar);
+	    return new JGUniversal(qfdVar, type, inner);
 	}
 }
 
