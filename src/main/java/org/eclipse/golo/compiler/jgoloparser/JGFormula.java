@@ -15,12 +15,10 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
-
 package org.eclipse.golo.compiler.jgoloparser;
 
 /**
  * Basic interface for formulas.
- *
  * @author Dominic Scheurer
  */
 public interface JGFormula extends JGVariableContainer {}

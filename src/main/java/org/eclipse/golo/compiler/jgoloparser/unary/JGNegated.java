@@ -15,22 +15,24 @@
  * You should have received a copy of the GNU General Public License
  * along with FirstOrderParser.  If not, see <http://www.gnu.org/licenses/>.
  */
-package org.eclipse.golo.compiler.jgoloparser;
+package org.eclipse.golo.compiler.jgoloparser.unary;
 
-public class JGLiteral extends JGTerm {
+import org.eclipse.golo.compiler.jgoloparser.JGFormula;
+import org.eclipse.golo.compiler.jgoloparser.visitor.SpecTreeVisitor;
 
-  private Object value;
+public class JGNegated extends JGUnary {
 
-  public JGLiteral(Object value) {
-    super(value.toString());
-    this.value = value;
+  public JGNegated(JGFormula formula) {
+    super(formula, Operator.NEGATIVE);
   }
 
-  public Object getValue() {
-      return value;
+  @Override
+  public void accept(SpecTreeVisitor visitor) {
+    visitor.visit(this);
   }
 
-  public void setValue(Object value) {
-      this.value = value;
+  @Override
+  public Type getType() {
+    return Type.BOOLEAN;
   }
 }

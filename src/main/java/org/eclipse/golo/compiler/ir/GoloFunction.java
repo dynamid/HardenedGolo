@@ -36,7 +36,6 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
   private final List<String> parameterNames = new LinkedList<>();
   private final List<String> syntheticParameterNames = new LinkedList<>();
   private boolean varargs = false;
-  private String stringSpecification;
   private JGSpecs specification;
   private Block block;
   private boolean synthetic = false;
@@ -180,32 +179,27 @@ public final class GoloFunction extends ExpressionStatement implements Scope {
     }
   }
 
-
   // specification --------------------------------------------------------------------------------
-  public GoloFunction withSpecification (String spec) {
-    String specif = "";
-    if(spec != null){
-      specif=spec;
+  public GoloFunction withSpecification(String spec) {
+    if (spec != null){
       try {
-//        System.out.println("Call Jgolo parser on : \""+spec+"\"");
         this.specification = FolJGoloParser.parse(spec);
       } catch(Exception e) {
-        System.err.println("Readed specification : \""+spec+"\"");
+        System.err.println("Readed specification : \"" + spec + "\"");
         e.printStackTrace();
-        this.specification=null;
+        this.specification = null;
       }
     }
-
-    this.stringSpecification = specif;
     return this;
   }
 
-  public String getSpecification() {
-      if(specification==null) return "";
-      return this.specification.toString();
-      //return this.stringSpecification;
+  String getSpecificationString() {
+      return specification == null ? "" : specification.toString();
   }
 
+  public JGSpecs getSpecification() {
+    return specification;
+  }
 
   // parameters and varargs -----------------------------------------------------------------------
   public GoloFunction varargs(boolean isVarargs) {

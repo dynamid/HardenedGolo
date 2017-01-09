@@ -342,7 +342,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
 
     incr();
     //Add specification
-    whyMLcode.add(space()+function.getSpecification());
+    whyMLcode.add(space()+function.getSpecificationString());
 
     //Declaration of local variables
     for (LocalReference ref: refList) {
