@@ -56,7 +56,7 @@ public class SymbolicTestCommand implements CliCommand{
           System.out.println(">>> Testing file `" + file.getAbsolutePath() + "`");
         }
         compiler.resetExceptionBuilder();
-        compiler.symtest(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile, int32);
+        compiler.symtest(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile);
       } catch (IOException e) {
         System.out.println("[error] " + file + " does not exist or could not be opened.");
       } catch (GoloCompilationException e) {

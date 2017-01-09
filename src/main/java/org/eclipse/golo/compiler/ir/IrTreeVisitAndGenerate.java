@@ -86,12 +86,7 @@ public class IrTreeVisitAndGenerate implements GoloIrVisitor {
     this.sourcePath=sourcePath;
     this.charsPerLine=Arrays.copyOf(charsPerLine, charsPerLine.length);
     this.destFile=destFile;
-    this.int32=int32;
-    if(int32) {
-      usedInt="int32";
-    } else {
-      usedInt="int";
-    }
+
   }
 
 

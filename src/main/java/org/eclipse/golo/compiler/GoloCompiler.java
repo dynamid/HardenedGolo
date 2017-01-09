@@ -289,15 +289,13 @@ public class GoloCompiler {
    * @return the intermediate representation of the source.
    * @throws GoloCompilationException if an error exists in the source represented by the input parse tree.
    */
-  public final GoloModule symtest(ASTCompilationUnit compilationUnit, String absolutePath, String destFile, boolean int32) throws IOException{
+  public final GoloModule symtest(ASTCompilationUnit compilationUnit, String absolutePath, String destFile) throws IOException{
     GoloModule goloModule = check(compilationUnit);
     int[] charsPerLine = countCharsPerLine(absolutePath);
-    if (destFile == null) {
-      destFile = "symtest.res";
-    } else if (destFile.isEmpty()) {
-      destFile = "symtest.res";
-    }
-    goloModule.accept(new IrSymbolicTestVisitor(absolutePath, charsPerLine, destFile, int32));
+
+    destFile = "symtest.res";
+
+    goloModule.accept(new IrSymbolicTestVisitor(absolutePath, charsPerLine, destFile));
 
     return goloModule;
   }
