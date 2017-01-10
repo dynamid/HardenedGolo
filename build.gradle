@@ -73,6 +73,9 @@ dependencies {
   compile 'com.beust:jcommander:1.55'
   compile 'com.github.rjeschke:txtmark:0.13'
   compile 'com.googlecode.json-simple:json-simple:1.1.1'
+  compile 'org.sosy-lab:javasmt-solver-z3:z3-4.4.1-1558-gf96cfea'
+  // https://mvnrepository.com/artifact/org.sosy-lab/javasmt-solver-z3-native
+  compile group: 'org.sosy-lab', name: 'javasmt-solver-z3-native', version: 'z3-4.4.1-788-g8df145d'
 
   testCompile 'org.ow2.asm:asm-util:5.1'
   testCompile 'org.ow2.asm:asm-analysis:5.1'

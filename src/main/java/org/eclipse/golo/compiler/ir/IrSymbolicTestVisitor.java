@@ -1,6 +1,4 @@
 
-
-
 /*
  * Copyright (c) 2012-2016 Institut National des Sciences Appliquées de Lyon (INSA-Lyon)
  *
@@ -16,14 +14,8 @@
 
 package org.eclipse.golo.compiler.ir;
 
-import java.lang.reflect.Array;
 import java.util.*;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.charset.Charset;
-
-
+import com.microsoft.z3.*;
 
 
 /**
@@ -40,6 +32,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   private ArrayList<functionNameArity> functionsCalled = new ArrayList<>();
 
   private HashMap<String,Integer>  SymbolicStatement = new HashMap<>();
+
 
 
   /// Indentation management
@@ -101,49 +94,21 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 
 
-  //================= <Code generation methods> =================
-
-  /**
-   * Return an indentation prefix String (containing spaces according to the depth level of the current code)
-   */
-  private String space() {
-    StringBuilder buf = new StringBuilder();
-    for (int i = 0; i < spacing; i++) {
-      buf.append(" ");
-    }
-    return buf.toString();
-  }
-
-  /**
-   * Augment the indentation level into the produced code.
-   */
-  private void incr() {
-    spacing = spacing + INDENTATION_WIDTH;
-  }
-
-  /**
-   * Reduce the indentation level into the produced code.
-   */
-  private void decr() {
-    spacing = spacing - INDENTATION_WIDTH;
-  }
-
-
-
-
-  //================= </Code generation methods> =================
-
-
-
-
-
 
   //================= <Visitor methods> =================
   @Override
   public void visitModule(GoloModule module) {
     System.out.println(">>>GoloModule: " + module.toString());
 
-    module.walk(this);
+   // evalExample1();
+    //module.walk(this);
+    Context ctx = new Context();
+   /* System.out.println("EvalExample1");
+    Log.append("EvalExample1");
+
+    IntExpr x = ctx.mkIntConst("x");
+    IntExpr y = ctx.mkIntConst("y");
+    IntExpr two = ctx.mkInt(2);*/
 
   }
 
@@ -152,8 +117,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
     System.out.println(">>>Function: " + function.toString());
     generateInput(function);
-    //System.out.println(function.getPositionInSourceCode());
-
     function.walk(this);
 
   }
@@ -375,12 +338,12 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 
 
-/* ================= <Utilil Method> ================= */
+/* ================= <Utilil Methods> ================= */
 
 
   public void generateInput(GoloFunction function) {
     int N_input = function.getArity();
-    ArrayList<Integer> inputs = new ArrayList();
+    ArrayList<Integer> inputs = new ArrayList<Integer>();
     for(int i =0; i< N_input; i++){
       inputs.add(generatRandomPositiveNegitiveValue(-65536,65536));
     }
@@ -396,4 +359,13 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     int val = Integer.parseInt(assignmentStatement.getExpressionStatement().toString());
     return val;
   }
+
+
+// ================= <Utilil Methods> =================
+
+
+
+
+
+// ================= <Constraint Solver Methods> =================
 }
