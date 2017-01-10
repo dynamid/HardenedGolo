@@ -15,7 +15,9 @@
 package org.eclipse.golo.compiler.ir;
 
 import java.util.*;
-import com.microsoft.z3.*;
+//import com.microsoft.z3.*;
+import org.chocosolver.solver.Model;
+import org.chocosolver.solver.variables.IntVar;
 
 
 /**
@@ -99,17 +101,19 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   @Override
   public void visitModule(GoloModule module) {
     System.out.println(">>>GoloModule: " + module.toString());
-
-   // evalExample1();
     //module.walk(this);
-    Context ctx = new Context();
+
+
+
+    solverExample();
+   // evalExample1();
+   // Context ctx = new Context();
    /* System.out.println("EvalExample1");
     Log.append("EvalExample1");
 
     IntExpr x = ctx.mkIntConst("x");
     IntExpr y = ctx.mkIntConst("y");
     IntExpr two = ctx.mkInt(2);*/
-
   }
 
   @Override
@@ -364,6 +368,31 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 // ================= <Utilil Methods> =================
 
 
+
+
+/* ================= <Constraint Solver Methods> =================*/
+  public void solverExample(){
+
+      Model model = new Model("Choco Solver Hello World");
+
+      IntVar a = model.intVar("a",IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+      IntVar b = model.intVar("b",IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+      IntVar zero = model.intVar("zero",0);
+
+      model.arithm(a, "+", b, "<", 8).post();
+      model.arithm(a, "-", b, "=", 5).post();
+      model.arithm(a, "-", zero, ">", 0).post();
+
+      model.getSolver().solve();
+      System.out.println("Solution found : " + a + ", " + b +','+ (a.getValue()+b.getValue()));
+      model.getSolver().solve();
+      System.out.println("Solution found : " + a + ", " + b);
+
+      /*int i = 1;
+      while (model.getSolver().solve()) {
+        System.out.println("Solution " + i++ + " found : " + a + ", " + b);
+      }*/
+  }
 
 
 
