@@ -24,20 +24,22 @@ import org.chocosolver.solver.variables.IntVar;
  * @author Qifan ZHOU
  */
 public class IrSymbolicTestVisitor implements GoloIrVisitor {
-
+  private Model model;
   private HashMap<String,VariableStatement> listOfVaribles;
+  private HashMap<String,VariableStatement> listOfInputs;
   private LinkedList<ConstraintStatement> PathConstratint;
-  private ArrayList<Integer> inputs;
+
   private int N_inputs;
-  private int N_inputs_counter;
+  private static int N_inputs_counter;
 
 
   public IrSymbolicTestVisitor() {
+    model = new Model("Choco Solver for Symbolic Path Constraint");
+    listOfVaribles = new HashMap<String,VariableStatement>();
+    listOfInputs = new HashMap<String,VariableStatement>();
+    PathConstratint= new LinkedList<ConstraintStatement>();
 
     System.out.println("--------- Symbolic Testing Visitor Created --------- " );
-
-    listOfVaribles = new HashMap<String,VariableStatement>();
-    PathConstratint= new LinkedList<ConstraintStatement>();
   }
 
 
@@ -55,8 +57,8 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   @Override
   public void visitFunction(GoloFunction function) {
     System.out.println(">>>Function: " + function.toString());
+    N_inputs=function.getArity();
     N_inputs_counter = 0;
-    this.initInputs(function);
     function.walk(this);
 
   }
@@ -69,8 +71,9 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   @Override
   public void visitLocalReference(LocalReference ref) {
     if(N_inputs_counter < N_inputs ){
-      VariableStatement var = new VariableStatement(ref.getName(),ref.getName(),inputs.get(N_inputs_counter));
+      VariableStatement var = new VariableStatement(ref.getName(),ref.getName(),generatRandomPositiveNegitiveValue(IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND));
       listOfVaribles.put(var.getName(),var);
+      listOfInputs.put(var.getName(),var);
       N_inputs_counter++;
     }
   }
@@ -91,7 +94,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     System.out.println(">>>ConditionalBranching: " + conditionalBranching.getCondition().toString());
     ConstraintStatement constraint = parse_ConditionExprToConstraint(conditionalBranching.getCondition());
     PathConstratint.add(constraint);
-    constraintSolve(constraint);
+    //constraintSolve(constraint);
     //System.out.println(">>>to Constraint: " + constraint);
 
    // conditionalBranching.getCondition().accept(this);
@@ -119,15 +122,16 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
   @Override
   public void visitConstantStatement(ConstantStatement constantStatement) {
-    System.out.println(">>>ConstantStatement: " + constantStatement.toString());
+    //System.out.println(">>>ConstantStatement: " + constantStatement.getValue());
   }
 
   @Override
   public void visitReturnStatement(ReturnStatement returnStatement) {
     // System.out.println(">>>ReturnStatement: " + returnStatement.toString());
     returnStatement.walk(this);
-    //System.out.println(listOfVaribles);
-   // System.out.println(PathConstratint);
+    System.out.println(">>>>>>>>before solve :"+listOfInputs);
+    PathConstraintSolve(PathConstratint,listOfInputs);
+    System.out.println(">>>>>>>>after solve :"+listOfInputs);
   }
 
   /** <Visitor methods> End */
@@ -141,14 +145,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 /** ================= <Utilil Methods> ================= */
 
-  private void initInputs(GoloFunction function) {
-    this.N_inputs = function.getArity();
-    this.inputs = new ArrayList<Integer>();
-    for(int i =0; i< N_inputs; i++){
-      inputs.add(generatRandomPositiveNegitiveValue(IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND));
-    }
-    System.out.println("Generated inputs for >>>"+ function.getName()+"<<< :"+inputs.toString());
-  }
 
   public static int generatRandomPositiveNegitiveValue(int min, int max) {
     int res = min + (int) (Math.random() * ((max - (min)) + 1));
@@ -176,12 +172,13 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   //this method transforms a "[var1] op1 [var2] op2 [var3]" form condition expression to a ConstraintStatement
   public ConstraintStatement parse_ConditionExprToConstraint(ExpressionStatement condition){
     String[] tokens = condition.toString().split("[ ]+");
+    if(tokens[1].equals("==")){tokens[3]="=";}
     if(tokens[3].equals("==")){tokens[3]="=";}
     ConstraintStatement constraint = new ConstraintStatement(generateVariableFromExpr(tokens[0]),generateVariableFromExpr(tokens[2]),generateVariableFromExpr(tokens[4]),tokens[1],tokens[3]);
     return constraint;
   }
 
-  public VariableStatement generateVariableFromExpr(String expr){
+  private VariableStatement generateVariableFromExpr(String expr){
     if (isInteger(expr)){
       return new VariableStatement(Integer.parseInt(expr));
     }
@@ -189,24 +186,49 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     return listOfVaribles.get(name);
   }
 
-  public void constraintSolve(ConstraintStatement constraint){
-    Model model = new Model("Choco Solver Hello World");
 
-    IntVar var1 = model.intVar(constraint.getVar1().getName(),IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
-    IntVar var2 = model.intVar(constraint.getVar2().getName(),IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
-    IntVar var3;
-    if(constraint.getVar3().isConstant) {
-      var3 = model.intVar(constraint.getVar3().getName(),constraint.getVar3().getValue(),constraint.getVar3().getValue());
-    }else{
-      var3 = model.intVar(constraint.getVar3().getName(),IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+  /* Main Function for solving the Path Constraint and generate the new inputs */
+  public void PathConstraintSolve(LinkedList<ConstraintStatement> pc, HashMap<String,VariableStatement> map){
+
+    HashMap<String,IntVar> listOfVar_forPC = new HashMap<String,IntVar>();
+    ListIterator<ConstraintStatement> listIterator = pc.listIterator();
+    while (listIterator.hasNext()) {
+      constraintSolve(listIterator.next(),listOfVar_forPC);
     }
 
-    model.arithm(var1, constraint.getOp1(), var2, constraint.getOp2(), var3).post();
+    System.out.println(model) ;
     model.getSolver().solve();
-    System.out.println("Solution found : " + var1 + ", " + var2 +','+ var3);
 
+    /* replace the former inputs by the new inputs generated by Constraint Solver */
+    for (String key : map.keySet()) {
+      if(listOfVar_forPC.get(key)!=null){
+        map.get(key).setValue(listOfVar_forPC.get(key).getValue());
+      }
+    }
   }
 
+  private void constraintSolve(ConstraintStatement constraint,HashMap<String,IntVar> varList){
+    IntVar var1 = evalVar(constraint.getVar1(), varList);
+    IntVar var2 = evalVar(constraint.getVar2(), varList);
+    IntVar var3 = evalVar(constraint.getVar3(), varList);
+    String op1 = constraint.getOp1();
+    String op2 = constraint.getOp2();
+
+    model.arithm(var1, op1, var2, op2, var3).post();
+  }
+
+  private IntVar evalVar(VariableStatement v, HashMap<String,IntVar> varList){
+    IntVar var = varList.get(v.getName());
+    if(var==null){
+      if(v.isConstant){
+        var = model.intVar(v.getName(),v.getValue(),v.getValue());
+      }else {
+        var = model.intVar(v.getName(), IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+      }
+      varList.put(v.getName(),var);
+    }
+    return var;
+  }
 
   /** <Utilil Methods> End */
 
@@ -353,8 +375,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     }
 }
 /** <Sub class ConstraintStatement> End */
-
-
 
 
 
