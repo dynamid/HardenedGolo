@@ -15,7 +15,6 @@
 package org.eclipse.golo.compiler.ir;
 
 import java.util.*;
-//import com.microsoft.z3.*;
 import org.chocosolver.solver.Model;
 import org.chocosolver.solver.variables.IntVar;
 
@@ -26,133 +25,61 @@ import org.chocosolver.solver.variables.IntVar;
  */
 public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
-  private String sourcePath;
-  private String destFile;
-  private int[] charsPerLine;
-  private ArrayList<String> whyMLcode = new ArrayList<>();
-  private ArrayList<functionNameArity> functionsDefined = new ArrayList<>();
-  private ArrayList<functionNameArity> functionsCalled = new ArrayList<>();
-
-  private HashMap<String,Integer>  SymbolicStatement = new HashMap<>();
+  private HashMap<String,VariableStatement> listOfVaribles;
+  private LinkedList<ConstraintStatement> PathConstratint;
+  private ArrayList<Integer> inputs;
+  private int N_inputs;
+  private int N_inputs_counter;
 
 
+  public IrSymbolicTestVisitor() {
 
-  /// Indentation management
-  private int spacing = 0;
-  private final static int INDENTATION_WIDTH = 4;
-
-
-  public IrSymbolicTestVisitor(String sourcePath, int[] charsPerLine, String destFile) {
-    this.sourcePath = sourcePath;
-    this.charsPerLine = Arrays.copyOf(charsPerLine, charsPerLine.length);
-    this.destFile = destFile;
     System.out.println("--------- Symbolic Testing Visitor Created --------- " );
+
+    listOfVaribles = new HashMap<String,VariableStatement>();
+    PathConstratint= new LinkedList<ConstraintStatement>();
   }
 
 
 
-  //================= <Sub class functionNameArity> =================
-  private static class functionNameArity {
-    private String name;
-    private int arity;
-    private PositionInSourceCode positionInSourceCode;
-
-    private functionNameArity(String name, int arity) {
-      this.name = name;
-      this.arity = arity;
-    }
-
-
-    private String getName() {
-      return name;
-    }
-
-    private int getArity() {
-      return arity;
-    }
-
-    private int getLine() {
-      return positionInSourceCode.getLine();
-    }
-
-    private int getColumn() {
-      return positionInSourceCode.getColumn();
-    }
-
-    /**
-     * Check if function has same name, and greater or same arity than param
-     */
-    private boolean isSimilar(functionNameArity fndefined) {
-      return fndefined != null &&
-        fndefined.getName().equals(this.name) &&
-        fndefined.getArity() <= this.arity;
-    }
-
-    public String toString() {
-      return name + arity;
-    }
-  }
-  //================= </Sub class functionNameArity> =================
-
-
-
-
-  //================= <Visitor methods> =================
+  /** ================= <Visitor methods> ================= */
   @Override
   public void visitModule(GoloModule module) {
     System.out.println(">>>GoloModule: " + module.toString());
-    //module.walk(this);
+    module.walk(this);
 
+    //solverExample();
 
-
-    solverExample();
-   // evalExample1();
-   // Context ctx = new Context();
-   /* System.out.println("EvalExample1");
-    Log.append("EvalExample1");
-
-    IntExpr x = ctx.mkIntConst("x");
-    IntExpr y = ctx.mkIntConst("y");
-    IntExpr two = ctx.mkInt(2);*/
   }
 
   @Override
   public void visitFunction(GoloFunction function) {
-
     System.out.println(">>>Function: " + function.toString());
-    generateInput(function);
+    N_inputs_counter = 0;
+    this.initInputs(function);
     function.walk(this);
 
   }
 
-
   @Override
   public void visitBlock(Block block) {
-    //System.out.println(block.toString());
-
-    //ReferenceTable referenceTable = block.getReferenceTable();
-    // context.referenceTableStack.push(referenceTable);
-    // if (block.isEmpty()) { return; }
-
     block.walk(this);
-
-    // context.referenceTableStack.pop();
   }
 
   @Override
   public void visitLocalReference(LocalReference ref) {
-   // System.out.println(ref.toString());
+    if(N_inputs_counter < N_inputs ){
+      VariableStatement var = new VariableStatement(ref.getName(),ref.getName(),inputs.get(N_inputs_counter));
+      listOfVaribles.put(var.getName(),var);
+      N_inputs_counter++;
+    }
   }
 
-  @Override
-  public void visitReturnStatement(ReturnStatement returnStatement) {
-    System.out.println(">>>ReturnStatement: " + returnStatement.toString());
-    returnStatement.walk(this);
-  }
+
 
   @Override
   public void visitFunctionInvocation(FunctionInvocation functionInvocation) {
-
+    functionInvocation.walk(this);
    // System.out.println(">>>FunctionInvocation : " + functionInvocation.toString());
 
   }
@@ -160,21 +87,25 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
   @Override
   public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
-    System.out.println(">>>ConditionalBranching: " + conditionalBranching.toString());
+    //System.out.println(">>>ConditionalBranching: " + conditionalBranching.toString());
+    System.out.println(">>>ConditionalBranching: " + conditionalBranching.getCondition().toString());
+    ConstraintStatement constraint = parse_ConditionExprToConstraint(conditionalBranching.getCondition());
+    PathConstratint.add(constraint);
+    constraintSolve(constraint);
+    //System.out.println(">>>to Constraint: " + constraint);
 
    // conditionalBranching.getCondition().accept(this);
-
     //conditionalBranching.getTrueBlock().accept(this);
 
   }
 
   @Override
   public void visitAssignmentStatement(AssignmentStatement assignmentStatement) {
-    System.out.println(">>>AssignmentStatement: " + assignmentStatement.toString());
+   /* System.out.println(">>>AssignmentStatement: " + assignmentStatement.toString());
     System.out.println("***** value of this AssignmentStatement is : " + ValueOfReference(assignmentStatement));
     System.out.println("00000000000000-"+SymbolicStatement);
     SymbolicStatement.put(assignmentStatement.getLocalReference().getName(),ValueOfReference(assignmentStatement));
-    System.out.println("11111111111111-"+SymbolicStatement);
+    System.out.println("11111111111111-"+SymbolicStatement);*/
 
     //assignmentStatement.walk(this);
   }
@@ -188,18 +119,258 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
   @Override
   public void visitConstantStatement(ConstantStatement constantStatement) {
-    //System.out.println(">>>ConstantStatement: " + constantStatement.toString());
+    System.out.println(">>>ConstantStatement: " + constantStatement.toString());
   }
-
 
   @Override
-  public void visitBinaryOperation(BinaryOperation binaryOperation) {
+  public void visitReturnStatement(ReturnStatement returnStatement) {
+    // System.out.println(">>>ReturnStatement: " + returnStatement.toString());
+    returnStatement.walk(this);
+    //System.out.println(listOfVaribles);
+   // System.out.println(PathConstratint);
+  }
 
-   // System.out.println(binaryOperation.toString());
+  /** <Visitor methods> End */
+
+
+
+
+
+
+
+
+/** ================= <Utilil Methods> ================= */
+
+  private void initInputs(GoloFunction function) {
+    this.N_inputs = function.getArity();
+    this.inputs = new ArrayList<Integer>();
+    for(int i =0; i< N_inputs; i++){
+      inputs.add(generatRandomPositiveNegitiveValue(IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND));
+    }
+    System.out.println("Generated inputs for >>>"+ function.getName()+"<<< :"+inputs.toString());
+  }
+
+  public static int generatRandomPositiveNegitiveValue(int min, int max) {
+    int res = min + (int) (Math.random() * ((max - (min)) + 1));
+    return res;
+  }
+
+  public int ValueOfReference(AssignmentStatement assignmentStatement) {
+    int val = Integer.parseInt(assignmentStatement.getExpressionStatement().toString());
+    return val;
+  }
+
+  public static boolean isInteger(String s) {
+    try {
+      Integer.parseInt(s);
+    } catch(NumberFormatException e) {
+      return false;
+    } catch(NullPointerException e) {
+      return false;
+    }
+    // only got here if we didn't return false
+    return true;
   }
 
 
-  //================= <Missing visitor methods -- Unsupported parts of the language> =================
+  //this method transforms a "[var1] op1 [var2] op2 [var3]" form condition expression to a ConstraintStatement
+  public ConstraintStatement parse_ConditionExprToConstraint(ExpressionStatement condition){
+    String[] tokens = condition.toString().split("[ ]+");
+    if(tokens[3].equals("==")){tokens[3]="=";}
+    ConstraintStatement constraint = new ConstraintStatement(generateVariableFromExpr(tokens[0]),generateVariableFromExpr(tokens[2]),generateVariableFromExpr(tokens[4]),tokens[1],tokens[3]);
+    return constraint;
+  }
+
+  public VariableStatement generateVariableFromExpr(String expr){
+    if (isInteger(expr)){
+      return new VariableStatement(Integer.parseInt(expr));
+    }
+    String name = expr.substring(expr.indexOf("=")+1, expr.indexOf("}"));
+    return listOfVaribles.get(name);
+  }
+
+  public void constraintSolve(ConstraintStatement constraint){
+    Model model = new Model("Choco Solver Hello World");
+
+    IntVar var1 = model.intVar(constraint.getVar1().getName(),IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+    IntVar var2 = model.intVar(constraint.getVar2().getName(),IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+    IntVar var3;
+    if(constraint.getVar3().isConstant) {
+      var3 = model.intVar(constraint.getVar3().getName(),constraint.getVar3().getValue(),constraint.getVar3().getValue());
+    }else{
+      var3 = model.intVar(constraint.getVar3().getName(),IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+    }
+
+    model.arithm(var1, constraint.getOp1(), var2, constraint.getOp2(), var3).post();
+    model.getSolver().solve();
+    System.out.println("Solution found : " + var1 + ", " + var2 +','+ var3);
+
+  }
+
+
+  /** <Utilil Methods> End */
+
+
+
+
+/* ================= <Constraint Solver Methods> =================*/
+  public void solverExample(){
+
+      Model model = new Model("Choco Solver Hello World");
+
+      IntVar a = model.intVar("a",IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+      IntVar b = model.intVar("b",IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+      IntVar zero = model.intVar("zero",0);
+
+      model.arithm(a, "+", b, "<", 8).post();
+      model.arithm(a, "-", b, "=", 5).post();
+      model.arithm(a, "-", zero, ">", 0).post();
+
+      model.getSolver().solve();
+      System.out.println("Solution found : " + a + ", " + b +','+ (a.getValue()+b.getValue()));
+      model.getSolver().solve();
+      System.out.println("Solution found : " + a + ", " + b);
+
+      /*int i = 1;
+      while (model.getSolver().solve()) {
+        System.out.println("Solution " + i++ + " found : " + a + ", " + b);
+      }*/
+  }
+
+
+
+// ================= <Constraint Solver Methods> =================
+
+
+
+
+
+/** ================= <Sub class VariableStatement> ================= */
+  private class VariableStatement {
+    private String name;
+    private String symbolicExpr;
+    private int concretExpr;
+
+    private boolean isConstant;
+
+    private VariableStatement(String aName, String aSymb, int aValue) {
+      name = aName;
+      symbolicExpr = aSymb;
+      concretExpr = aValue;
+      isConstant=false;
+    }
+
+    private VariableStatement(int aValue) {
+      name = Integer.toString(aValue);
+      symbolicExpr = Integer.toString(aValue);
+      concretExpr = aValue;
+      isConstant=true;
+    }
+
+    public void setName(String aName) {
+      name = aName;
+    }
+    public void setSymb(String aSymb) {
+      symbolicExpr = aSymb;
+    }
+    public void setValue(int aValue) {
+      concretExpr = aValue;
+    }
+
+    public String getName() {
+      return name;
+    }
+    public String getSymb() {
+      return symbolicExpr;
+    }
+    public int getValue() {
+      return concretExpr;
+    }
+
+    public boolean isConstant() {
+      return isConstant;
+    }
+
+    @Override
+    public String toString (){
+      return "<"+name+"="+symbolicExpr+"'="+concretExpr+">";
+    }
+  }
+/** <Sub class VariableStatement> End */
+
+
+/** ================= <Sub class ConstraintStatement> =================
+ * "form: [var1] op1 [var2] op2 [var3]
+ * example: x + y = z (var1 =x var2 =y var3 =z, op1="+", op2="=" )*/
+  private class ConstraintStatement {
+    private VariableStatement var1;
+    private String op1;
+    private VariableStatement var2;
+    private String op2;
+    private VariableStatement var3;
+
+    private ConstraintStatement(VariableStatement aVar1,VariableStatement aVar2, VariableStatement aVar3, String anOp1, String anOp2) {
+      var1=aVar1;
+      var2=aVar2;
+      var3=aVar3;
+      op1=anOp1;
+      op2=anOp2;
+    }
+    public void setVar1(VariableStatement aVar1) {
+      var1 = aVar1;
+    }
+    public void setVar2(VariableStatement aVar2) {
+      var1 = aVar2;
+    }
+    public void setVar3(VariableStatement aVar3) {
+      var1 = aVar3;
+    }
+    public void setOp1(String anOp1) {
+      op1 = anOp1;
+    }
+    public void setOp2(String anOp2) {
+      op2 = anOp2;
+    }
+    public VariableStatement getVar1() {
+      return var1;
+    }
+    public VariableStatement getVar2() {
+      return var2;
+    }
+    public VariableStatement getVar3() {
+      return var3;
+    }
+    public String getOp1() {
+      return op1;
+    }
+    public String getOp2() {
+      return op2;
+    }
+
+    @Override
+    public String toString (){
+      return "<"+var1.getName()+op1+var2.getName()+op2+var3.getName()+">";
+    }
+}
+/** <Sub class ConstraintStatement> End */
+
+
+
+
+
+
+
+
+
+
+
+//================= <Missing visitor methods -- Unsupported parts of the language> =================
+
+@Override
+public void visitBinaryOperation(BinaryOperation binaryOperation) {
+
+  // System.out.println(binaryOperation.toString());
+}
 
   @Override
   public void visitUnaryOperation(UnaryOperation unaryOperation) {
@@ -236,29 +407,11 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   @Override
   public void visitLoopStatement(LoopStatement loopStatement) {
     System.out.println("Loop unsupported");
-
-    if (loopStatement.hasInitStatement()) {
-      loopStatement.getInitStatement().accept(this);
-    }
-    loopStatement.getConditionStatement().accept(this);
-    loopStatement.getBlock().accept(this);
-    if (loopStatement.hasPostStatement()) {
-      loopStatement.getPostStatement().accept(this);
-    }
   }
 
   @Override
   public void visitForEachLoopStatement(ForEachLoopStatement foreachStatement) {
     System.out.println("Foreach unsupported");
-
-    for (LocalReference ref : foreachStatement.getReferences()) {
-      ref.accept(this);
-    }
-    foreachStatement.getIterable().accept(this);
-    if (foreachStatement.hasWhenClause()) {
-      foreachStatement.getWhenClause().accept(this);
-    }
-    foreachStatement.getBlock().accept(this);
   }
 
   @Override
@@ -341,60 +494,4 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 
 
-
-/* ================= <Utilil Methods> ================= */
-
-
-  public void generateInput(GoloFunction function) {
-    int N_input = function.getArity();
-    ArrayList<Integer> inputs = new ArrayList<Integer>();
-    for(int i =0; i< N_input; i++){
-      inputs.add(generatRandomPositiveNegitiveValue(-65536,65536));
-    }
-    System.out.println("Generated inputs for >>>"+ function.getName()+"<<< :"+inputs.toString());
-  }
-
-  public static int generatRandomPositiveNegitiveValue(int min, int max) {
-    int res = min + (int) (Math.random() * ((max - (min)) + 1));
-    return res;
-  }
-
-  public int ValueOfReference(AssignmentStatement assignmentStatement) {
-    int val = Integer.parseInt(assignmentStatement.getExpressionStatement().toString());
-    return val;
-  }
-
-
-// ================= <Utilil Methods> =================
-
-
-
-
-/* ================= <Constraint Solver Methods> =================*/
-  public void solverExample(){
-
-      Model model = new Model("Choco Solver Hello World");
-
-      IntVar a = model.intVar("a",IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
-      IntVar b = model.intVar("b",IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
-      IntVar zero = model.intVar("zero",0);
-
-      model.arithm(a, "+", b, "<", 8).post();
-      model.arithm(a, "-", b, "=", 5).post();
-      model.arithm(a, "-", zero, ">", 0).post();
-
-      model.getSolver().solve();
-      System.out.println("Solution found : " + a + ", " + b +','+ (a.getValue()+b.getValue()));
-      model.getSolver().solve();
-      System.out.println("Solution found : " + a + ", " + b);
-
-      /*int i = 1;
-      while (model.getSolver().solve()) {
-        System.out.println("Solution " + i++ + " found : " + a + ", " + b);
-      }*/
-  }
-
-
-
-// ================= <Constraint Solver Methods> =================
 }

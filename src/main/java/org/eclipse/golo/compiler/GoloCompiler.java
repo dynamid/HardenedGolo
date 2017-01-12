@@ -295,7 +295,7 @@ public class GoloCompiler {
 
     destFile = "symtest.res";
 
-    goloModule.accept(new IrSymbolicTestVisitor(absolutePath, charsPerLine, destFile));
+    goloModule.accept(new IrSymbolicTestVisitor());
 
     return goloModule;
   }
