@@ -49,9 +49,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   public void visitModule(GoloModule module) {
     System.out.println(">>>GoloModule: " + module.toString());
     module.walk(this);
-
-    //solverExample();
-
   }
 
   @Override
@@ -72,6 +69,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   public void visitLocalReference(LocalReference ref) {
     if(N_inputs_counter < N_inputs ){
       VariableStatement var = new VariableStatement(ref.getName(),ref.getName(),generatRandomPositiveNegitiveValue(IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND));
+      System.out.println("input "+(N_inputs_counter+1)+" : "+var);
       listOfVaribles.put(var.getName(),var);
       listOfInputs.put(var.getName(),var);
       N_inputs_counter++;
@@ -81,17 +79,20 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 
   @Override
-  public void visitFunctionInvocation(FunctionInvocation functionInvocation) {
-    functionInvocation.walk(this);
-   // System.out.println(">>>FunctionInvocation : " + functionInvocation.toString());
+  public void visitAssignmentStatement(AssignmentStatement assignmentStatement) {
+    //System.out.println(">>>AssignmentStatement: " + assignmentStatement.toString());
+    VariableStatement var = parse_AssignmentExprToVariable(assignmentStatement);
+    listOfVaribles.put(var.getName(),var);
+    System.out.println(">>>AssignmentStatement: "+var);
 
+    //assignmentStatement.walk(this);
   }
 
 
   @Override
   public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
     //System.out.println(">>>ConditionalBranching: " + conditionalBranching.toString());
-    System.out.println(">>>ConditionalBranching: " + conditionalBranching.getCondition().toString());
+   // System.out.println(">>>ConditionalBranching: " + conditionalBranching.getCondition().toString());
     ConstraintStatement constraint = parse_ConditionExprToConstraint(conditionalBranching.getCondition());
     PathConstratint.add(constraint);
     //constraintSolve(constraint);
@@ -102,22 +103,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
   }
 
-  @Override
-  public void visitAssignmentStatement(AssignmentStatement assignmentStatement) {
-   /* System.out.println(">>>AssignmentStatement: " + assignmentStatement.toString());
-    System.out.println("***** value of this AssignmentStatement is : " + ValueOfReference(assignmentStatement));
-    System.out.println("00000000000000-"+SymbolicStatement);
-    SymbolicStatement.put(assignmentStatement.getLocalReference().getName(),ValueOfReference(assignmentStatement));
-    System.out.println("11111111111111-"+SymbolicStatement);*/
 
-    //assignmentStatement.walk(this);
-  }
-
-
-  @Override
-  public void visitReferenceLookup(ReferenceLookup referenceLookup) {
-
-  }
 
 
   @Override
@@ -129,7 +115,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   public void visitReturnStatement(ReturnStatement returnStatement) {
     // System.out.println(">>>ReturnStatement: " + returnStatement.toString());
     returnStatement.walk(this);
-    System.out.println(">>>>>>>>before solve :"+listOfInputs);
+   // System.out.println(">>>>>>>>before solve :"+listOfInputs);
     PathConstraintSolve(PathConstratint,listOfInputs);
     System.out.println(">>>>>>>>after solve :"+listOfInputs);
   }
@@ -145,55 +131,143 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 /** ================= <Utilil Methods> ================= */
 
+  public static boolean isInteger(String s) {
+  try {
+    Integer.parseInt(s);
+  } catch(NumberFormatException e) {
+    return false;
+  } catch(NullPointerException e) {
+    return false;
+  }
+  // only got here if we didn't return false
+  return true;
+}
+
+  public boolean isInput(VariableStatement v) {
+    if(listOfInputs.get(v.getName())!=null){
+      return true;
+    }
+    return false;
+  }
+
+  public  VariableStatement getVarFromList(String name){
+    if (isInteger(name)){
+      return new VariableStatement(Integer.parseInt(name)); //create constant value
+    }
+    if(listOfVaribles.get(name)==null){
+      System.out.println(">>>>>> Error: variable '"+name+"' does not exist in listOfVariables <<<<<<<");
+      System.exit(0);
+    }
+    return listOfVaribles.get(name);
+  }
 
   public static int generatRandomPositiveNegitiveValue(int min, int max) {
     int res = min + (int) (Math.random() * ((max - (min)) + 1));
     return res;
   }
 
-  public int ValueOfReference(AssignmentStatement assignmentStatement) {
-    int val = Integer.parseInt(assignmentStatement.getExpressionStatement().toString());
-    return val;
-  }
-
-  public static boolean isInteger(String s) {
-    try {
-      Integer.parseInt(s);
-    } catch(NumberFormatException e) {
-      return false;
-    } catch(NullPointerException e) {
-      return false;
+  private VariableStatement generateVariableFromReferenceExpr(String expr){
+    if (isInteger(expr)){
+      return new VariableStatement(Integer.parseInt(expr)); //create constant value
     }
-    // only got here if we didn't return false
-    return true;
+    String name = expr.substring(expr.indexOf("=")+1, expr.indexOf("}"));
+    return getVarFromList(name);
   }
 
+
+
+  //this method transforms a "[var] = [number]" or "[var1] = [var2] + [number]" form assignment expression to a VariableStatement
+  public VariableStatement parse_AssignmentExprToVariable(AssignmentStatement assignment){
+    VariableStatement var = new VariableStatement();
+    var.setName(assignment.getLocalReference().getName());
+
+    String[] tokens = assignment.getExpressionStatement().toString().split("[ ]+");
+    if(tokens.length==1){
+      // 'var = number ' form
+
+      var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue());
+
+      if(isInteger(tokens[0])){
+        var.setSymb(tokens[0]);
+        var.setConstant(true);
+      }else{
+        var.setSymb(evalSymbExpr(tokens[0]));
+        var.setConstant(false);
+      }
+
+    }else if(tokens.length == 3){
+      // 'var1 =var2 + number ' form
+
+      switch(tokens[1]) {
+        case "+" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() + generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+        case "-" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() - generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+        case "*" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() * generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+        case "/" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() / generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+        case "%" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() % generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+        default:     System.out.println(">>>>>> Error: operator '"+tokens[1]+"'is not supported in this version <<<<<<");
+                     System.exit(0); break;
+      }
+
+      if(isInteger(tokens[0])&&isInteger(tokens[2])){
+          var.setSymb( Integer.toString(var.getValue()));
+          var.setConstant(true);
+      }else{
+          String s1 =evalSymbExpr(tokens[0]);
+          String s2 =evalSymbExpr(tokens[2]);
+          if(isInteger(s1)&&isInteger(s2)){
+              var.setSymb( Integer.toString(var.getValue()));
+              var.setConstant(true);
+          }else{
+              var.setSymb(s1 + " " + tokens[1] + " " + s2);
+              var.setConstant(false);
+          }
+      }
+
+    }else{
+      System.out.println(">>>>>> Error: assignement only support 'VAR1 = NUMBER1' or 'VAR1 = VAR2 + NUMBER1' form <<<<<<<");
+      System.exit(0);
+    }
+
+    return var;
+  }
 
   //this method transforms a "[var1] op1 [var2] op2 [var3]" form condition expression to a ConstraintStatement
   public ConstraintStatement parse_ConditionExprToConstraint(ExpressionStatement condition){
+
     String[] tokens = condition.toString().split("[ ]+");
-    if(tokens[1].equals("==")){tokens[3]="=";}
-    if(tokens[3].equals("==")){tokens[3]="=";}
-    ConstraintStatement constraint = new ConstraintStatement(generateVariableFromExpr(tokens[0]),generateVariableFromExpr(tokens[2]),generateVariableFromExpr(tokens[4]),tokens[1],tokens[3]);
-    return constraint;
+
+    if (tokens.length == 5) {
+      if (tokens[1].equals("==")) {
+        tokens[1] = "=";
+      }
+      if (tokens[3].equals("==")) {
+        tokens[3] = "=";
+      }
+      ConstraintStatement constraint = new ConstraintStatement(generateVariableFromReferenceExpr(tokens[0]), generateVariableFromReferenceExpr(tokens[2]), generateVariableFromReferenceExpr(tokens[4]), tokens[1], tokens[3]);
+      return constraint;
+    }else if (tokens.length == 3){
+      if (tokens[1].equals("==")) {
+        tokens[1] = "=";
+      }
+      ConstraintStatement constraint = new ConstraintStatement(generateVariableFromReferenceExpr(tokens[0]), generateVariableFromReferenceExpr("0"), generateVariableFromReferenceExpr(tokens[2]), "+", tokens[1]);
+      return constraint;
+
+    }else{
+      System.out.println(">>>>>> Error: condition expression only support '[VAR1] op1 [VAR2] op2 [VAR3]' or [VAR1] op [VAR2] form <<<<<<<");
+      System.exit(0);
+    }
+    return null;
   }
 
-  private VariableStatement generateVariableFromExpr(String expr){
-    if (isInteger(expr)){
-      return new VariableStatement(Integer.parseInt(expr));
-    }
-    String name = expr.substring(expr.indexOf("=")+1, expr.indexOf("}"));
-    return listOfVaribles.get(name);
-  }
 
 
   /* Main Function for solving the Path Constraint and generate the new inputs */
   public void PathConstraintSolve(LinkedList<ConstraintStatement> pc, HashMap<String,VariableStatement> map){
 
-    HashMap<String,IntVar> listOfVar_forPC = new HashMap<String,IntVar>();
+    HashMap<String,IntVar> SolverVarList = new HashMap<String,IntVar>();
     ListIterator<ConstraintStatement> listIterator = pc.listIterator();
     while (listIterator.hasNext()) {
-      constraintSolve(listIterator.next(),listOfVar_forPC);
+      constraintSolve(listIterator.next(),SolverVarList);
     }
 
     System.out.println(model) ;
@@ -201,31 +275,81 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
     /* replace the former inputs by the new inputs generated by Constraint Solver */
     for (String key : map.keySet()) {
-      if(listOfVar_forPC.get(key)!=null){
-        map.get(key).setValue(listOfVar_forPC.get(key).getValue());
+      if(SolverVarList.get(key)!=null){
+        map.get(key).setValue(SolverVarList.get(key).getValue());
       }
     }
   }
 
-  private void constraintSolve(ConstraintStatement constraint,HashMap<String,IntVar> varList){
-    IntVar var1 = evalVar(constraint.getVar1(), varList);
-    IntVar var2 = evalVar(constraint.getVar2(), varList);
-    IntVar var3 = evalVar(constraint.getVar3(), varList);
+  private void constraintSolve(ConstraintStatement constraint,HashMap<String,IntVar> SolverVarList){
+    IntVar var1 = evalVar(constraint.getVar1(), SolverVarList);
+    IntVar var2 = evalVar(constraint.getVar2(), SolverVarList);
+    IntVar var3 = evalVar(constraint.getVar3(), SolverVarList);
     String op1 = constraint.getOp1();
     String op2 = constraint.getOp2();
 
-    model.arithm(var1, op1, var2, op2, var3).post();
+    addConstraintsModel(var1, var2, var3, op1, op2);
   }
 
-  private IntVar evalVar(VariableStatement v, HashMap<String,IntVar> varList){
-    IntVar var = varList.get(v.getName());
+  private void addConstraintsModel(IntVar var1, IntVar var2 , IntVar var3, String op1, String op2){
+    switch(op1){
+      case "+" : model.arithm(var1, op1, var2, op2, var3).post(); break;
+      case "-" : model.arithm(var1, op1, var2, op2, var3).post(); break;
+      case "*" : model.times(var1, var2,  var3).post(); break;
+      case "/" : model.div(var1, var2,  var3).post(); break;
+      default:     System.out.println(">>>>>> Error: operator '"+op1+"'is not supported in this version <<<<<<");
+                   System.exit(0); break;
+    }
+
+  }
+
+  private String evalSymbExpr(String expr){
+    if(isInteger(expr)){
+      return expr;
+    }
+    String str = expr.substring(expr.indexOf("=")+1, expr.indexOf("}"));
+    VariableStatement var = listOfVaribles.get(str);
+    if (var==null){
+      System.out.println(">>>>>> Error: SybExpression '"+str+"'does not exist <<<<<<");
+      System.exit(0);
+    }else if(isInput(var)){
+      return var.getName();
+    }
+
+    return var.getSymb();
+  }
+
+  private IntVar evalVar(VariableStatement v, HashMap<String,IntVar> SolverVarList){
+    IntVar var = SolverVarList.get(v.getName());
     if(var==null){
-      if(v.isConstant){
+      if(v.isConstant()){
         var = model.intVar(v.getName(),v.getValue(),v.getValue());
       }else {
         var = model.intVar(v.getName(), IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
+
+
+        /** eval the local variable */
+        if((!isInput(v))&&(!isInteger(v.getSymb()))){
+
+          String[] tokens = v.getSymb().toString().split("[ ]");
+          if (tokens.length == 1) {
+            IntVar var1 = evalVar(getVarFromList(tokens[0]), SolverVarList);
+            addConstraintsModel(var1, evalVar(new VariableStatement(0),SolverVarList), var,"+" , "=");  // VAR1 + 0 = VAR2
+
+          }else if (tokens.length == 3){
+            IntVar var1 = evalVar(getVarFromList(tokens[0]), SolverVarList);
+            IntVar var2 = evalVar(getVarFromList(tokens[2]), SolverVarList);
+            addConstraintsModel(var1, var2, var, tokens[1], "=");
+
+          }else{
+            System.out.println(">>>>>> Error: SymbExpr fomat unsupported <<<<<<<");
+            System.exit(0);
+          }
+
+        }
+
       }
-      varList.put(v.getName(),var);
+      SolverVarList.put(v.getName(),var);
     }
     return var;
   }
@@ -275,6 +399,10 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
     private boolean isConstant;
 
+    private VariableStatement(){
+      setConstant(false);
+    }
+
     private VariableStatement(String aName, String aSymb, int aValue) {
       name = aName;
       symbolicExpr = aSymb;
@@ -312,10 +440,13 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     public boolean isConstant() {
       return isConstant;
     }
+    public void setConstant(boolean b) {
+      isConstant = b;
+    }
 
     @Override
     public String toString (){
-      return "<"+name+"="+symbolicExpr+"'="+concretExpr+">";
+      return "<"+name+"='"+symbolicExpr+"'="+concretExpr+">";
     }
   }
 /** <Sub class VariableStatement> End */
@@ -386,11 +517,23 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 //================= <Missing visitor methods -- Unsupported parts of the language> =================
 
-@Override
-public void visitBinaryOperation(BinaryOperation binaryOperation) {
+  @Override
+  public void visitFunctionInvocation(FunctionInvocation functionInvocation) {
+    functionInvocation.walk(this);
+    // System.out.println(">>>FunctionInvocation : " + functionInvocation.toString());
 
-  // System.out.println(binaryOperation.toString());
-}
+  }
+
+  @Override
+  public void visitReferenceLookup(ReferenceLookup referenceLookup) {
+
+  }
+
+  @Override
+  public void visitBinaryOperation(BinaryOperation binaryOperation) {
+
+    // System.out.println(binaryOperation.toString());
+  }
 
   @Override
   public void visitUnaryOperation(UnaryOperation unaryOperation) {
