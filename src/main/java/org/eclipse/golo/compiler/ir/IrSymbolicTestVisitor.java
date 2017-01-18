@@ -8,7 +8,7 @@
  * http://www.eclipse.org/legal/epl-v10.html
  */
 
-/**
+ /**
  * Created by qifan on 09/12/16.
  */
 
@@ -27,47 +27,53 @@ import org.chocosolver.util.ESat;
 
 /**
  * <p>This Visitor aims at symbolic testing of the golo program.
+ * Read a golo code file with a Golo Function and generate inputs values for exploring all the possibles path
  * @author Qifan ZHOU
  */
 public class IrSymbolicTestVisitor implements GoloIrVisitor {
+
   private Model model;
+  private GoloModule moduleStatement;
   private GoloFunction functionStatement;
+
   private HashMap<String,VariableStatement> listOfVaribles;
   private HashMap<String,VariableStatement> listOfInputs;
   private LinkedList<ConstraintStatement> PathConstratint;
+  private LinkedList<LinkedList<ConstraintStatement>> unsatisfiable_Path_List;
   private ExecutionTree executionTree;
   private ExecutionNode currentNode;
+
   private int flag;
-
-  private int N_inputs;
-  private static int N_inputs_counter;
   private int pathCounter;
-
   private String fileName;
   private ArrayList<String> outputCode = new ArrayList<>();
+  private final int EXPLORE_MAX = 200; //this value can be changed or removed ! !
 
 
   public IrSymbolicTestVisitor() {
     model = new Model("Choco Solver for Symbolic Path Constraint");
-    listOfVaribles = new HashMap<String,VariableStatement>();
-    listOfInputs = new HashMap<String,VariableStatement>();
-    PathConstratint= new LinkedList<ConstraintStatement>();
+    listOfVaribles = new HashMap<>();
+    listOfInputs = new HashMap<>();
+    PathConstratint= new LinkedList<>();
+    unsatisfiable_Path_List= new LinkedList<>();
     executionTree = new ExecutionTree();
     currentNode = executionTree.getRoot();
     pathCounter=1;
-
-
     System.out.println(">>> Symbolic Testing Visitor Created. " );
   }
-
 
 
   /** ================= <Visitor methods> ================= */
   @Override
   public void visitModule(GoloModule module) {
-    System.out.println(">>> GoloModule: " + module.toString());
+    System.out.println(">>> GoloModule: " + module.getPackageAndClass());
+    if(module.getFunctions().size()>1){
+      System.out.println(">>> ERROR: Symbolic Testing Tool only support 1 GoloFunction per file.<<<" );
+      System.exit(0);
+    }
+    moduleStatement=module;
     module.walk(this);
-    outputTestFile();
+
   }
 
   @Override
@@ -100,18 +106,11 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   public void visitLocalReference(LocalReference ref) {
   }
 
-
-
   @Override
   public void visitAssignmentStatement(AssignmentStatement assignmentStatement) {
-    //System.out.println(">>>AssignmentStatement: " + assignmentStatement.toString());
     VariableStatement var = parse_AssignmentExprToVariable(assignmentStatement);
     listOfVaribles.put(var.getName(),var);
-    //System.out.println("--- local variable: "+var);
-
-    //assignmentStatement.walk(this);
   }
-
 
   @Override
   public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
@@ -124,11 +123,9 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     if(constraint.isTrue()) {
     /* Then Branch */
       flag = 1;
-      //currentNode.setTrueDone(true);
       conditionalBranching.getTrueBlock().accept(this);
     }else {
     /* Else branche */
-     // currentNode.setFalseDone(true);
       flag = 0;
       if (conditionalBranching.hasElseConditionalBranching()) {
         conditionalBranching.getElseConditionalBranching().accept(this);
@@ -137,12 +134,8 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         conditionalBranching.getFalseBlock().accept(this);
       }
     }
-      /* Other branche */
 
   }
-
-
-
 
   @Override
   public void visitConstantStatement(ConstantStatement constantStatement) {
@@ -154,178 +147,105 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     // System.out.println(">>>ReturnStatement: " + returnStatement.toString());
     returnStatement.walk(this);
     displayLocalVariable();
-    updateTestFile(listOfInputs);
+    updateTestFile();
     currentNode.setPathDone();
     PathConstratint = evalPath(currentNode);
     System.out.println(">>> Global Execution Tree:");
     executionTree.display();
-    System.out.println("--- last node in this execution :"+ currentNode.toString());
+    System.out.println(">>> last node in this execution :"+ currentNode.toString());
 
     if (PathConstratint!=null) {
         pathCounter++;
         HashMap<String, VariableStatement> newInputs = PathConstraintSolve(PathConstratint, listOfInputs);
+
+      /* if current constraint can't be solved, setDone this path and jump to UnDo Node */
+        while (newInputs==null){
+          pathCounter++;
+          unsatisfiable_Path_List.add(PathConstratint);
+          currentNode.setDone();
+          currentNode.setPathDone();
+          PathConstratint = evalPath(currentNode);
+          if (PathConstratint==null) {
+            executionTree.display();
+            finishExplore();
+          }
+          newInputs = PathConstraintSolve(PathConstratint, listOfInputs);
+        }
+
+        /* Restart the new Explore */
         reset(newInputs);
-        if(pathCounter==32){
+        if(pathCounter >= EXPLORE_MAX){
+          System.out.println("MAX EXPLORE NUMBER REACHED ;"+pathCounter);
           System.exit(0);
         }
         functionStatement.walk(this);
     }else{
-      System.out.println("------------------------ Path Explore Completed : "+ pathCounter+" paths ----------------------");
-
+      finishExplore();
     }
   }
 
-  /** <Visitor methods> End */
 
 
 
+/** ================= < Main Algorithm Methods> ================= */
 
+  /* this method transforms a "[var] = [number]" or "[var1] = [var2] + [number]" form assignment expression to a VariableStatement */
+  private VariableStatement parse_AssignmentExprToVariable(AssignmentStatement assignment){
+  VariableStatement var = new VariableStatement();
+  var.setName(assignment.getLocalReference().getName());
 
+  String[] tokens = assignment.getExpressionStatement().toString().split("[ ]+");
+  if(tokens.length==1){
+    // 'var = number ' form
 
+    var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue());
 
-
-/** ================= <Utilil Methods> ================= */
-
-  public void reset(HashMap<String,VariableStatement> newInputs) {
-    System.out.println("---------------------------- Exploring Path "+ pathCounter+"  ----------------------------");
-    System.out.println(">>> Path_Constraint: " + PathConstratint);
-    displayInputs();
-
-    /* initialization */
-    model = new Model("Choco Solver for Symbolic Path Constraint");
-    listOfVaribles = new HashMap<String,VariableStatement>();
-    listOfInputs = newInputs;
-    listOfVaribles = new HashMap<String,VariableStatement>();
-    for (String key : listOfInputs.keySet()) {
-       listOfVaribles.put(listOfInputs.get(key).getName(),listOfInputs.get(key));
+    if(isInteger(tokens[0])){
+      var.setSymb(tokens[0]);
+      var.setConstant(true);
+    }else{
+      var.setSymb(evalSymbExpr(tokens[0]));
+      var.setConstant(false);
     }
-    PathConstratint= new LinkedList<ConstraintStatement>();
-    currentNode = executionTree.getRoot();
-  }
 
-  public static boolean isInteger(String s) {
-  try {
-    Integer.parseInt(s);
-  } catch(NumberFormatException e) {
-    return false;
-  } catch(NullPointerException e) {
-    return false;
-  }
-  // only got here if we didn't return false
-  return true;
-}
+  }else if(tokens.length == 3){
+    // 'var1 =var2 + number ' form
 
-  public void tp(String s){
-    System.out.println(s);
-  }
-
-  public boolean isInput(VariableStatement v) {
-    if(listOfInputs.get(v.getName())!=null){
-      return true;
+    switch(tokens[1]) {
+      case "+" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() + generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+      case "-" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() - generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+      case "*" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() * generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+      case "/" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() / generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+      case "%" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() % generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
+      default:     System.out.println(">>>>>> Error: operator '"+tokens[1]+"'is not supported in this version <<<<<<");
+        System.exit(0); break;
     }
-    return false;
-  }
 
-  public  VariableStatement getVarFromList(String name){
-    if (isInteger(name)){
-      return new VariableStatement(Integer.parseInt(name)); //create constant value
-    }
-    if(listOfVaribles.get(name)==null){
-      System.out.println(">>>>>> Error: variable '"+name+"' does not exist in listOfVariables <<<<<<<");
-      System.exit(0);
-    }
-    return listOfVaribles.get(name);
-  }
-
-  public static int generatRandomPositiveNegitiveValue(int min, int max) {
-    int res = min + (int) (Math.random() * ((max - (min)) + 1));
-    return res;
-  }
-
-  private VariableStatement generateVariableFromReferenceExpr(String expr){
-    if (isInteger(expr)){
-      return new VariableStatement(Integer.parseInt(expr)); //create constant value
-    }
-    String name = expr.substring(expr.indexOf("=")+1, expr.indexOf("}"));
-    return getVarFromList(name);
-  }
-
-  public void displayInputs(){
-    System.out.print(">>> Inputs: ");
-    for (String key : listOfInputs.keySet()) {
-      System.out.print("["+key+"="+listOfInputs.get(key).getValue()+"] ");
-    }
-    System.out.println("");
-  }
-
-  public void displayLocalVariable(){
-    System.out.print(">>> local_variables: ");
-    for (String key : listOfVaribles.keySet()) {
-      if(listOfInputs.get(key)==null) {
-        System.out.print(listOfVaribles.get(key).toString()+"  ");
-      }
-    }
-    System.out.println("");
-  }
-
-
-  //this method transforms a "[var] = [number]" or "[var1] = [var2] + [number]" form assignment expression to a VariableStatement
-  public VariableStatement parse_AssignmentExprToVariable(AssignmentStatement assignment){
-    VariableStatement var = new VariableStatement();
-    var.setName(assignment.getLocalReference().getName());
-
-    String[] tokens = assignment.getExpressionStatement().toString().split("[ ]+");
-    if(tokens.length==1){
-      // 'var = number ' form
-
-      var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue());
-
-      if(isInteger(tokens[0])){
-        var.setSymb(tokens[0]);
+    if(isInteger(tokens[0])&&isInteger(tokens[2])){
+      var.setSymb( Integer.toString(var.getValue()));
+      var.setConstant(true);
+    }else{
+      String s1 =evalSymbExpr(tokens[0]);
+      String s2 =evalSymbExpr(tokens[2]);
+      if(isInteger(s1)&&isInteger(s2)){
+        var.setSymb( Integer.toString(var.getValue()));
         var.setConstant(true);
       }else{
-        var.setSymb(evalSymbExpr(tokens[0]));
+        var.setSymb(s1 + " " + tokens[1] + " " + s2);
         var.setConstant(false);
       }
-
-    }else if(tokens.length == 3){
-      // 'var1 =var2 + number ' form
-
-      switch(tokens[1]) {
-        case "+" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() + generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
-        case "-" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() - generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
-        case "*" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() * generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
-        case "/" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() / generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
-        case "%" :   var.setValue(generateVariableFromReferenceExpr(tokens[0]).getValue() % generateVariableFromReferenceExpr(tokens[2]).getValue()); break;
-        default:     System.out.println(">>>>>> Error: operator '"+tokens[1]+"'is not supported in this version <<<<<<");
-                     System.exit(0); break;
-      }
-
-      if(isInteger(tokens[0])&&isInteger(tokens[2])){
-          var.setSymb( Integer.toString(var.getValue()));
-          var.setConstant(true);
-      }else{
-          String s1 =evalSymbExpr(tokens[0]);
-          String s2 =evalSymbExpr(tokens[2]);
-          if(isInteger(s1)&&isInteger(s2)){
-              var.setSymb( Integer.toString(var.getValue()));
-              var.setConstant(true);
-          }else{
-              var.setSymb(s1 + " " + tokens[1] + " " + s2);
-              var.setConstant(false);
-          }
-      }
-
-    }else{
-      System.out.println(">>>>>> Error: assignement only support 'VAR1 = NUMBER1' or 'VAR1 = VAR2 + NUMBER1' form <<<<<<<");
-      System.exit(0);
     }
 
-    return var;
+  }else{
+    System.out.println(">>>>>> Error: assignement only support 'VAR1 = NUMBER1' or 'VAR1 = VAR2 + NUMBER1' form <<<<<<<");
+    System.exit(0);
   }
 
+  return var;
+}
+
   //this method transforms a "[var1] op1 [var2] op2 [var3]" form condition expression to a ConstraintStatement
-  public ConstraintStatement parse_ConditionExprToConstraint(ExpressionStatement condition){
+  private ConstraintStatement parse_ConditionExprToConstraint(ExpressionStatement condition){
 
     String[] tokens = condition.toString().split("[ ]+");
 
@@ -336,14 +256,12 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       if (tokens[3].equals("==")) {
         tokens[3] = "=";
       }
-      ConstraintStatement constraint = new ConstraintStatement(generateVariableFromReferenceExpr(tokens[0]), generateVariableFromReferenceExpr(tokens[2]), generateVariableFromReferenceExpr(tokens[4]), tokens[1], tokens[3]);
-      return constraint;
+      return new ConstraintStatement(generateVariableFromReferenceExpr(tokens[0]), generateVariableFromReferenceExpr(tokens[2]), generateVariableFromReferenceExpr(tokens[4]), tokens[1], tokens[3]);
     }else if (tokens.length == 3){
       if (tokens[1].equals("==")) {
         tokens[1] = "=";
       }
-      ConstraintStatement constraint = new ConstraintStatement(generateVariableFromReferenceExpr(tokens[0]), generateVariableFromReferenceExpr("0"), generateVariableFromReferenceExpr(tokens[2]), "+", tokens[1]);
-      return constraint;
+      return  new ConstraintStatement(generateVariableFromReferenceExpr(tokens[0]), generateVariableFromReferenceExpr("0"), generateVariableFromReferenceExpr(tokens[2]), "+", tokens[1]);
 
     }else{
       System.out.println(">>>>>> Error: condition expression only support '[VAR1] op1 [VAR2] op2 [VAR3]' or [VAR1] op [VAR2] form <<<<<<<");
@@ -352,28 +270,44 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     return null;
   }
 
-
-
-  /* Main Function for solving the Path Constraint and generate the new inputs */
-  public HashMap<String,VariableStatement> PathConstraintSolve(LinkedList<ConstraintStatement> pc, HashMap<String,VariableStatement> map){
-
-    HashMap<String,IntVar> SolverVarList = new HashMap<String,IntVar>();
-    ListIterator<ConstraintStatement> listIterator = pc.listIterator();
-    while (listIterator.hasNext()) {
-      constraintSolve(listIterator.next(),SolverVarList);
+  private VariableStatement generateVariableFromReferenceExpr(String expr){
+    if (isInteger(expr)){
+      return new VariableStatement(Integer.parseInt(expr)); //create constant value
     }
+    String name = expr.substring(expr.indexOf("=")+1, expr.indexOf("}"));
+    return getVarFromList(name);
+  }
 
-   // System.out.println(model) ;
+ /* Main Function for solving the Path Constraint and generate the new inputs */
+  private HashMap<String,VariableStatement> PathConstraintSolve(LinkedList<ConstraintStatement> pc, HashMap<String,VariableStatement> map){
+
+  HashMap<String,IntVar> SolverVarList = new HashMap<>();
+  for (ConstraintStatement aPc : pc) {
+    constraintSolve(aPc, SolverVarList);
+  }
+
+  //System.out.println(model) ;
+  try{
     model.getSolver().solve();
+  }catch(OutOfMemoryError e){
+    System.out.println(">>> Undefined by this Solver: "+ pc);
+    return null;
+  }
+  ESat satisfaction = model.getSolver().isSatisfied();
+  switch(satisfaction){
+    case TRUE:    System.out.println(">>> Satisfiable: "+ pc); break;
+    case FALSE:   System.out.println(">>> Unsatisfiable: "+ pc); return null;
+    case UNDEFINED: System.out.println(">>> Undefined by this Solver: "+ pc); return null;
+  }
 
     /* replace the former inputs by the new inputs generated by Constraint Solver */
-    for (String key : map.keySet()) {
-      if(SolverVarList.get(key)!=null&& map.get(key)!=null){
-        map.get(key).setValue(SolverVarList.get(key).getValue());
-      }
+  for (String key : map.keySet()) {
+    if(SolverVarList.get(key)!=null&& map.get(key)!=null){
+      map.get(key).setValue(SolverVarList.get(key).getValue());
     }
-    return map;
   }
+  return map;
+}
 
   private void constraintSolve(ConstraintStatement constraint,HashMap<String,IntVar> SolverVarList){
     IntVar var1 = evalVar(constraint.getVar1(), SolverVarList);
@@ -391,10 +325,33 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       case "-" : model.arithm(var1, op1, var2, op2, var3).post(); break;
       case "*" : model.times(var1, var2,  var3).post(); break;
       case "/" : model.div(var1, var2,  var3).post(); break;
+      case "%" : model.mod(var1,var2,var3).post(); break;
       default:     System.out.println(">>>>>> Error: operator '"+op1+"'is not supported in this version <<<<<<");
-                   System.exit(0); break;
+        System.exit(0); break;
     }
 
+  }
+
+  private ExecutionNode generateNode (ConstraintStatement constraint){
+    ExecutionNode res = this.currentNode;
+    ExecutionNode newNode = new ExecutionNode(constraint);
+    if(executionTree.getRoot()==null){
+      executionTree.setRoot(newNode);
+      res = executionTree.getRoot();
+    }else if(constraint.toString().equals(res.getCondition().toString())){
+      res.setCondition(constraint);
+    }
+    else if(res.add(newNode,flag)) {
+      res = newNode;
+    }else{
+      if(flag==1){
+        res=res.getTrueBranch();
+      }else{
+        res=res.getFalseBranch();
+      }
+    }
+
+    return res;
   }
 
   private String evalSymbExpr(String expr){
@@ -422,10 +379,10 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         var = model.intVar(v.getName(), IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND);
 
 
-        /** eval the local variable */
+        /* eval the local variable */
         if((!isInput(v))&&(!isInteger(v.getSymb()))){
 
-          String[] tokens = v.getSymb().toString().split("[ ]");
+          String[] tokens = v.getSymb().split("[ ]");
           if (tokens.length == 1) {
             IntVar var1 = evalVar(getVarFromList(tokens[0]), SolverVarList);
             addConstraintsModel(model,var1, evalVar(new VariableStatement(0),SolverVarList), var,"+" , "=");  // VAR1 + 0 = VAR2
@@ -449,7 +406,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   }
 
   private LinkedList<ConstraintStatement> evalPath(ExecutionNode node){
-    LinkedList<ConstraintStatement> pathConstratints= new LinkedList<ConstraintStatement>();
+    LinkedList<ConstraintStatement> pathConstratints= new LinkedList<>();
     ExecutionNode lastNodeUndo = node.tillUndo(node);
     if (lastNodeUndo == null){
       return null;
@@ -458,40 +415,105 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     if(!lastNodeUndo.TrueDone()) {
       lastNodeUndo.addToConstraintList(pathConstratints,true);
     }else if (!lastNodeUndo.FalseDone()) {
-     lastNodeUndo.addToConstraintList(pathConstratints,false);
+      lastNodeUndo.addToConstraintList(pathConstratints,false);
     }
 
     return pathConstratints;
   }
-  private ExecutionNode generateNode (ConstraintStatement constraint){
-    ExecutionNode res = this.currentNode;
-    ExecutionNode newNode = new ExecutionNode(constraint);
-    if(executionTree.getRoot()==null){
-      executionTree.setRoot(newNode);
-      res = executionTree.getRoot();
-    }else if(constraint.toString().equals(res.getCondition().toString())){
-      res.setCondition(constraint);
+
+
+
+/** ================= <Utilil Methods> ================= */
+
+  private static int generatRandomPositiveNegitiveValue(int min, int max) {
+  return  min + (int) (Math.random() * ((max - (min)) + 1));
+}
+
+  private void reset(HashMap<String,VariableStatement> newInputs) {
+    System.out.println("---------------------------- Exploring Path "+ pathCounter+"  ----------------------------");
+    System.out.println(">>> Path_Constraint: " + PathConstratint);
+    displayInputs();
+
+    /* initialization */
+    model = new Model("Choco Solver for Symbolic Path Constraint");
+    listOfVaribles = new HashMap<>();
+    listOfInputs = newInputs;
+    listOfVaribles = new HashMap<>();
+    for (String key : listOfInputs.keySet()) {
+       listOfVaribles.put(listOfInputs.get(key).getName(),listOfInputs.get(key));
     }
-    else if(res.add(newNode,flag)) {
-      res = newNode;
-    }else{
-      if(flag==1){
-        res=res.getTrueBranch();
-      }else{
-        res=res.getFalseBranch();
+    PathConstratint= new LinkedList<>();
+    currentNode = executionTree.getRoot();
+  }
+
+  private void finishExplore() {
+    System.out.println("------------------------ Symbolic Execution Completed ----------------------");
+    System.out.println(">>> Total Path : "+ pathCounter);
+    System.out.println(">>> Unsatisfiable : "+ unsatisfiable_Path_List.size());
+    for (LinkedList<ConstraintStatement> anUnsatisfiable_Path_List : unsatisfiable_Path_List) {
+      System.out.print(anUnsatisfiable_Path_List + "  ");
+    }
+    if(unsatisfiable_Path_List.size()>0){
+      System.out.println();
+    }
+    System.out.println(">>> Test the : "+ (pathCounter-unsatisfiable_Path_List.size())+" satisfiable paths: Execute the output files " +fileName  );
+
+    outputTestFile();
+    System.exit(0);
+  }
+
+  private static boolean isInteger(String s) {
+  try {
+    Integer.parseInt(s);
+  } catch(NumberFormatException e) {
+    return false;
+  } catch(NullPointerException e) {
+    return false;
+  }
+  // only got here if we didn't return false
+  return true;
+}
+
+  private boolean isInput(VariableStatement v) {
+    return listOfInputs.get(v.getName())!=null;
+  }
+
+  private  VariableStatement getVarFromList(String name){
+    if (isInteger(name)){
+      return new VariableStatement(Integer.parseInt(name)); //create constant value
+    }
+    if(listOfVaribles.get(name)==null){
+      System.out.println(">>>>>> Error: variable '"+name+"' does not exist in listOfVariables <<<<<<<");
+      System.exit(0);
+    }
+    return listOfVaribles.get(name);
+  }
+
+  private void displayInputs(){
+    System.out.print(">>> Inputs: ");
+    for (String key : listOfInputs.keySet()) {
+      System.out.print("["+key+"="+listOfInputs.get(key).getValue()+"] ");
+    }
+    System.out.println("");
+  }
+
+  private void displayLocalVariable(){
+    System.out.print(">>> local_variables: ");
+    for (String key : listOfVaribles.keySet()) {
+      if(listOfInputs.get(key)==null) {
+        System.out.print(listOfVaribles.get(key).toString()+"  ");
       }
     }
-
-    return res;
+    System.out.println("");
   }
-
 
   private void initTestFile(){
-    outputCode.add ( "module "+ fileName+"\n");
+    outputCode.add ( "module "+ functionStatement.getName()+"\n");
+    outputCode.add ( "import "+ moduleStatement.getPackageAndClass()+"\n");
     outputCode.add ( "function main = |args| {\n");
-    //outputCode.add ( "  println(\"testing\")");
   }
-  private void updateTestFile( HashMap<String,VariableStatement> inputs){
+
+  private void updateTestFile(){
     String s1= "  println(\">>> Testing <" + functionStatement.getName()+"> with Inputs [";
 
     String s2 = "  "+ functionStatement.getName()+"(";
@@ -513,6 +535,8 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   }
 
   private void outputTestFile(){
+    String s= "  println(\">>> "+pathCounter+"  Path Explored Completed.\")\n";
+    outputCode.add (s);
     outputCode.add ( "}");
     try {
       Files.write(Paths.get(fileName), outputCode, Charset.forName("UTF-8"));
@@ -521,13 +545,8 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     }
   }
 
-  /** <Utilil Methods> End */
 
-
-
-
-/* ================= <Constraint Solver Methods> =================*/
-  public void solverExample(HashMap<String,VariableStatement> listOfInputs){
+  /* public void solverExample(HashMap<String,VariableStatement> listOfInputs){
 
       Model model = new Model("Choco Solver Hello World");
 
@@ -544,18 +563,11 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       model.getSolver().solve();
       System.out.println("Solution found : " + a + ", " + b);
 
-      /*int i = 1;
+      int i = 1;
       while (model.getSolver().solve()) {
         System.out.println("Solution " + i++ + " found : " + a + ", " + b);
-      }*/
-  }
-
-
-
-// ================= <Constraint Solver Methods> =================
-
-
-
+      }
+  }*/
 
 
 /** ================= <Sub class VariableStatement> ================= */
@@ -584,30 +596,30 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       isConstant=true;
     }
 
-    public void setName(String aName) {
+    private void setName(String aName) {
       name = aName;
     }
-    public void setSymb(String aSymb) {
+    private void setSymb(String aSymb) {
       symbolicExpr = aSymb;
     }
     public void setValue(int aValue) {
       concretExpr = aValue;
     }
 
-    public String getName() {
+    private String getName() {
       return name;
     }
-    public String getSymb() {
+    private String getSymb() {
       return symbolicExpr;
     }
-    public int getValue() {
+    private int getValue() {
       return concretExpr;
     }
 
-    public boolean isConstant() {
+    private boolean isConstant() {
       return isConstant;
     }
-    public void setConstant(boolean b) {
+    private void setConstant(boolean b) {
       isConstant = b;
     }
 
@@ -616,8 +628,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       return "<"+name+"='"+symbolicExpr+"'="+concretExpr+">";
     }
   }
-/** <Sub class VariableStatement> End */
-
 
 /** ================= <Sub class ConstraintStatement> =================
  * "form: [var1] op1 [var2] op2 [var3]
@@ -636,34 +646,20 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       op1=anOp1;
       op2=anOp2;
     }
-    public void setVar1(VariableStatement aVar1) {
-      var1 = aVar1;
-    }
-    public void setVar2(VariableStatement aVar2) {
-      var1 = aVar2;
-    }
-    public void setVar3(VariableStatement aVar3) {
-      var1 = aVar3;
-    }
-    public void setOp1(String anOp1) {
-      op1 = anOp1;
-    }
-    public void setOp2(String anOp2) {
-      op2 = anOp2;
-    }
-    public VariableStatement getVar1() {
+
+    private VariableStatement getVar1() {
       return var1;
     }
-    public VariableStatement getVar2() {
+    private VariableStatement getVar2() {
       return var2;
     }
-    public VariableStatement getVar3() {
+    private VariableStatement getVar3() {
       return var3;
     }
-    public String getOp1() {
+    private String getOp1() {
       return op1;
     }
-    public String getOp2() {
+    private String getOp2() {
       return op2;
     }
 
@@ -672,7 +668,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       return "<"+var1.getName()+op1+var2.getName()+op2+var3.getName()+">";
     }
 
-    public boolean isTrue(){
+    private boolean isTrue(){
       String str = " Judge the condition "+ this.toString();
       Model m  = new Model(str);
       VariableStatement variable1 = getVarFromList(var1.getName());
@@ -701,7 +697,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       return false;
     }
 
-    public ConstraintStatement inverse(){
+    private ConstraintStatement inverse(){
       ConstraintStatement res = new ConstraintStatement(var1,var2,var3,op1,op2);
       switch(op2){
         case "=" : res.op2 = "!="; break;
@@ -716,8 +712,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     }
 
   }
-/** <Sub class ConstraintStatement> End */
-
 
   /** ================= <Sub class ExecutionTree> ================= */
 
@@ -726,9 +720,9 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     private ExecutionNode TrueBranch;
     private ExecutionNode FalseBranch;
     private ExecutionNode FatherNode;
-    public boolean BoolFromFather;
-    public boolean TrueIsDone;
-    public boolean FalseIsDone;
+    private boolean BoolFromFather;
+    private boolean TrueIsDone;
+    private boolean FalseIsDone;
 
     private ExecutionNode(ConstraintStatement aCondition){
       myCondition = aCondition;
@@ -747,32 +741,39 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       return myCondition;
     }
 
-    public void setTrueBranch(ExecutionNode left) {
+    private void setTrueBranch(ExecutionNode left) {
       this.TrueBranch = left;
     }
-    public void setFalseBranch(ExecutionNode right ) {
+    private void setFalseBranch(ExecutionNode right ) {
       this.FalseBranch = right;
     }
-    public ExecutionNode getTrueBranch() {
+    private ExecutionNode getTrueBranch() {
       return TrueBranch;
     }
-    public ExecutionNode getFalseBranch() {
+    private ExecutionNode getFalseBranch() {
       return FalseBranch;
     }
-    public void setTrueDone(boolean done){
+    private void setTrueDone(boolean done){
       TrueIsDone = done;
     }
-    public void setFalseDone(boolean done){
+    private void setFalseDone(boolean done){
       FalseIsDone = done;
     }
-    public boolean  TrueDone() {
+    private boolean  TrueDone() {
       return TrueIsDone;
     }
-    public boolean FalseDone() {
+    private boolean FalseDone() {
       return FalseIsDone;
     }
+    private void setDone(){
+      if(!TrueDone()){
+        setTrueDone(true);
+      }else if (!FalseDone()){
+        setFalseDone(true);
+      }
+    }
 
-    public ExecutionNode getFather() {
+    private ExecutionNode getFather() {
       if (this.FatherNode==null){
         return null;
       }
@@ -802,10 +803,9 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         return true;
     }
 
-    public ExecutionNode tillUndo(ExecutionNode node) {
+    private ExecutionNode tillUndo(ExecutionNode node) {
       setPathDone();
       if((node.TrueDone())&&(node.FalseDone())){
-
         if (node.FatherNode==null){
           return null;
         }else {
@@ -821,7 +821,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       return node;
     }
 
-    public void setPathDone(){
+    private void setPathDone(){
       if(this.getCondition().isTrue()){
         this.setTrueDone(true);
       }else{
@@ -832,7 +832,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       }
     }
 
-    public void setFatherDone(){
+    private void setFatherDone(){
         if(this.getFather()!=null){
           if(this.BoolFromFather){
               this.getFather().setTrueDone(true);
@@ -842,10 +842,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         }
     }
 
-    public void addToConstraintList(LinkedList<ConstraintStatement> list, boolean flag){
-      if(this==null){
-
-      }else {
+    private void addToConstraintList(LinkedList<ConstraintStatement> list, boolean flag){
         if (flag) {
           list.add(this.getCondition());
         } else {
@@ -855,7 +852,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         if(this.getFather()!=null) {
           this.getFather().addToConstraintList(list, BoolFromFather);
         }
-      }
     }
 
     @Override
@@ -863,27 +859,26 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       if(this.FatherNode==null){
         return (myCondition.toString());
       }
-      String s =this.myCondition.toString() + " : " +BoolFromFather + " Branch of :" + FatherNode.getCondition().toString();
-      return s;
+      return this.myCondition.toString() + " : " +BoolFromFather + " Branch of :" + FatherNode.getCondition().toString();
     }
   }
 
   private class ExecutionTree {
     private ExecutionNode root;
 
-    public void ExecutionTree() {
+    private ExecutionTree() {
       root = null;
     }
-    public ExecutionNode getRoot() {
+    private ExecutionNode getRoot() {
       return root;
     }
 
-    public void setRoot(ExecutionNode node) {
+    private void setRoot(ExecutionNode node) {
       root = node;
     }
 
 
-      public  void display() {
+    private  void display() {
         int maxLevel = maxLevel(root);
 
         printNodeInternal(Collections.singletonList(root), 1, maxLevel);
@@ -900,7 +895,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
         printWhitespaces(firstSpaces);
 
-        List<ExecutionNode> newNodes = new ArrayList<ExecutionNode>();
+        List<ExecutionNode> newNodes = new ArrayList<>();
         for (ExecutionNode node : nodes) {
           if (node != null) {
             if(node.TrueIsDone){System.out.print("[1]");}else{System.out.print("[0]");}
@@ -919,21 +914,21 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         System.out.println("");
 
         for (int i = 1; i <= endgeLines; i++) {
-          for (int j = 0; j < nodes.size(); j++) {
-           printWhitespaces(firstSpaces - i);
-            if (nodes.get(j) == null) {
+          for (ExecutionNode node : nodes) {
+            printWhitespaces(firstSpaces - i);
+            if (node == null) {
               printWhitespaces(endgeLines + endgeLines + i + 1);
               continue;
             }
 
-            if (nodes.get(j).getTrueBranch() != null)
+            if (node.getTrueBranch() != null)
               System.out.print("/");
             else
               printWhitespaces(1);
 
             printWhitespaces(i + i - 1);
 
-            if (nodes.get(j).getFalseBranch() != null)
+            if (node.getFalseBranch() != null)
               System.out.print("\\");
             else
               printWhitespaces(1);
@@ -971,14 +966,9 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 
   }
-  /** <Sub class ExecutionTree> End */
 
 
-
-
-
-
-//================= <Missing visitor methods -- Unsupported parts of the language> =================
+/** ================= <Unsupported visitor methods > ================= */
 
   @Override
   public void visitFunctionInvocation(FunctionInvocation functionInvocation) {
@@ -1082,7 +1072,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     namedArgument.getExpression().accept(this);
   }
 
-
   @Override
   public void visitModuleImport(ModuleImport moduleImport) {
     moduleImport.walk(this);
@@ -1117,7 +1106,5 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   @Override
   public void visitDestructuringAssignment(DestructuringAssignment assignment) {
   }
-
-
 
 }
