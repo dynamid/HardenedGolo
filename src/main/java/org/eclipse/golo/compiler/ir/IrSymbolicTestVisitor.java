@@ -14,6 +14,10 @@
 
 package org.eclipse.golo.compiler.ir;
 
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 import org.chocosolver.solver.Model;
 import org.chocosolver.solver.Solver;
@@ -39,6 +43,9 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   private static int N_inputs_counter;
   private int pathCounter;
 
+  private String fileName;
+  private ArrayList<String> outputCode = new ArrayList<>();
+
 
   public IrSymbolicTestVisitor() {
     model = new Model("Choco Solver for Symbolic Path Constraint");
@@ -48,6 +55,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     executionTree = new ExecutionTree();
     currentNode = executionTree.getRoot();
     pathCounter=1;
+
 
     System.out.println(">>> Symbolic Testing Visitor Created. " );
   }
@@ -59,17 +67,28 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   public void visitModule(GoloModule module) {
     System.out.println(">>> GoloModule: " + module.toString());
     module.walk(this);
+    outputTestFile();
   }
 
   @Override
   public void visitFunction(GoloFunction function) {
     System.out.println(">>> Function: " + function.toString());
-    System.out.println("----------------------------  Exploring Path 1  ----------------------------");
-    functionStatement=function;
-    N_inputs=function.getArity();
-    N_inputs_counter = 0;
-    function.walk(this);
 
+    functionStatement=function;
+    fileName = "test_"+function.getName()+".golo";
+
+    /* initialization first inputs */
+    for (int i=0;i<function.getArity();i++) {
+      String expr= function.getParameterNames().get(i);
+      VariableStatement var = new VariableStatement( expr,expr,generatRandomPositiveNegitiveValue(IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND));
+      listOfVaribles.put(var.getName(),var);
+      listOfInputs.put(var.getName(),var);
+    }
+    initTestFile();
+
+    System.out.println("----------------------------  Exploring Path 1  ----------------------------");
+    displayInputs();
+    function.walk(this);
   }
 
   @Override
@@ -79,16 +98,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
   @Override
   public void visitLocalReference(LocalReference ref) {
-    if(N_inputs_counter < N_inputs ){
-      VariableStatement var = new VariableStatement(ref.getName(),ref.getName(),generatRandomPositiveNegitiveValue(IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND));
-      listOfVaribles.put(var.getName(),var);
-      listOfInputs.put(var.getName(),var);
-      N_inputs_counter++;
-        if(N_inputs_counter==N_inputs) {
-          displayInputs();
-          N_inputs_counter++;
-        }
-    }
   }
 
 
@@ -145,7 +154,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     // System.out.println(">>>ReturnStatement: " + returnStatement.toString());
     returnStatement.walk(this);
     displayLocalVariable();
-
+    updateTestFile(listOfInputs);
     currentNode.setPathDone();
     PathConstratint = evalPath(currentNode);
     System.out.println(">>> Global Execution Tree:");
@@ -162,6 +171,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         functionStatement.walk(this);
     }else{
       System.out.println("------------------------ Path Explore Completed : "+ pathCounter+" paths ----------------------");
+
     }
   }
 
@@ -476,7 +486,40 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   }
 
 
+  private void initTestFile(){
+    outputCode.add ( "module "+ fileName+"\n");
+    outputCode.add ( "function main = |args| {\n");
+    //outputCode.add ( "  println(\"testing\")");
+  }
+  private void updateTestFile( HashMap<String,VariableStatement> inputs){
+    String s1= "  println(\">>> Testing <" + functionStatement.getName()+"> with Inputs [";
 
+    String s2 = "  "+ functionStatement.getName()+"(";
+
+    for (int i=0;i<functionStatement.getArity();i++) {
+      if(i>0){
+        s1= s1+", ";
+        s2= s2+", ";
+      }
+      String name= functionStatement.getParameterNames().get(i);
+      s1= s1+name+"="+listOfInputs.get(name).getValue();
+      s2 = s2+ listOfInputs.get(name).getValue();
+    }
+    s1 = s1+"]\")";
+    s2 = s2+")\n";
+
+    outputCode.add(s1);
+    outputCode.add(s2);
+  }
+
+  private void outputTestFile(){
+    outputCode.add ( "}");
+    try {
+      Files.write(Paths.get(fileName), outputCode, Charset.forName("UTF-8"));
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+  }
 
   /** <Utilil Methods> End */
 
@@ -677,7 +720,6 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 
   /** ================= <Sub class ExecutionTree> ================= */
-
 
   private class ExecutionNode {
     private ConstraintStatement myCondition;
