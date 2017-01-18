@@ -16,7 +16,9 @@ package org.eclipse.golo.compiler.ir;
 
 import java.util.*;
 import org.chocosolver.solver.Model;
+import org.chocosolver.solver.Solver;
 import org.chocosolver.solver.variables.IntVar;
+import org.chocosolver.util.ESat;
 
 
 /**
@@ -25,12 +27,17 @@ import org.chocosolver.solver.variables.IntVar;
  */
 public class IrSymbolicTestVisitor implements GoloIrVisitor {
   private Model model;
+  private GoloFunction functionStatement;
   private HashMap<String,VariableStatement> listOfVaribles;
   private HashMap<String,VariableStatement> listOfInputs;
   private LinkedList<ConstraintStatement> PathConstratint;
+  private ExecutionTree executionTree;
+  private ExecutionNode currentNode;
+  private int flag;
 
   private int N_inputs;
   private static int N_inputs_counter;
+  private int pathCounter;
 
 
   public IrSymbolicTestVisitor() {
@@ -38,8 +45,11 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     listOfVaribles = new HashMap<String,VariableStatement>();
     listOfInputs = new HashMap<String,VariableStatement>();
     PathConstratint= new LinkedList<ConstraintStatement>();
+    executionTree = new ExecutionTree();
+    currentNode = executionTree.getRoot();
+    pathCounter=1;
 
-    System.out.println("--------- Symbolic Testing Visitor Created --------- " );
+    System.out.println(">>> Symbolic Testing Visitor Created. " );
   }
 
 
@@ -47,13 +57,15 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   /** ================= <Visitor methods> ================= */
   @Override
   public void visitModule(GoloModule module) {
-    System.out.println(">>>GoloModule: " + module.toString());
+    System.out.println(">>> GoloModule: " + module.toString());
     module.walk(this);
   }
 
   @Override
   public void visitFunction(GoloFunction function) {
-    System.out.println(">>>Function: " + function.toString());
+    System.out.println(">>> Function: " + function.toString());
+    System.out.println("----------------------------  Exploring Path 1  ----------------------------");
+    functionStatement=function;
     N_inputs=function.getArity();
     N_inputs_counter = 0;
     function.walk(this);
@@ -69,10 +81,13 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   public void visitLocalReference(LocalReference ref) {
     if(N_inputs_counter < N_inputs ){
       VariableStatement var = new VariableStatement(ref.getName(),ref.getName(),generatRandomPositiveNegitiveValue(IntVar.MIN_INT_BOUND, IntVar.MAX_INT_BOUND));
-      System.out.println("input "+(N_inputs_counter+1)+" : "+var);
       listOfVaribles.put(var.getName(),var);
       listOfInputs.put(var.getName(),var);
       N_inputs_counter++;
+        if(N_inputs_counter==N_inputs) {
+          displayInputs();
+          N_inputs_counter++;
+        }
     }
   }
 
@@ -83,7 +98,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     //System.out.println(">>>AssignmentStatement: " + assignmentStatement.toString());
     VariableStatement var = parse_AssignmentExprToVariable(assignmentStatement);
     listOfVaribles.put(var.getName(),var);
-    System.out.println(">>>AssignmentStatement: "+var);
+    //System.out.println("--- local variable: "+var);
 
     //assignmentStatement.walk(this);
   }
@@ -91,15 +106,29 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
   @Override
   public void visitConditionalBranching(ConditionalBranching conditionalBranching) {
-    //System.out.println(">>>ConditionalBranching: " + conditionalBranching.toString());
-   // System.out.println(">>>ConditionalBranching: " + conditionalBranching.getCondition().toString());
-    ConstraintStatement constraint = parse_ConditionExprToConstraint(conditionalBranching.getCondition());
-    PathConstratint.add(constraint);
-    //constraintSolve(constraint);
-    //System.out.println(">>>to Constraint: " + constraint);
+    //System.out.println(">>>ConditionalBranching: " + conditionalBranching.getCondition().toString());
 
-   // conditionalBranching.getCondition().accept(this);
-    //conditionalBranching.getTrueBlock().accept(this);
+     /* generate Execution Node from current condition */
+    ConstraintStatement constraint = parse_ConditionExprToConstraint(conditionalBranching.getCondition());
+    currentNode = generateNode(constraint);
+    /* Explore the different branch */
+    if(constraint.isTrue()) {
+    /* Then Branch */
+      flag = 1;
+      //currentNode.setTrueDone(true);
+      conditionalBranching.getTrueBlock().accept(this);
+    }else {
+    /* Else branche */
+     // currentNode.setFalseDone(true);
+      flag = 0;
+      if (conditionalBranching.hasElseConditionalBranching()) {
+        conditionalBranching.getElseConditionalBranching().accept(this);
+      }
+      if (conditionalBranching.hasFalseBlock()) {
+        conditionalBranching.getFalseBlock().accept(this);
+      }
+    }
+      /* Other branche */
 
   }
 
@@ -115,9 +144,25 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   public void visitReturnStatement(ReturnStatement returnStatement) {
     // System.out.println(">>>ReturnStatement: " + returnStatement.toString());
     returnStatement.walk(this);
-   // System.out.println(">>>>>>>>before solve :"+listOfInputs);
-    PathConstraintSolve(PathConstratint,listOfInputs);
-    System.out.println(">>>>>>>>after solve :"+listOfInputs);
+    displayLocalVariable();
+
+    currentNode.setPathDone();
+    PathConstratint = evalPath(currentNode);
+    System.out.println(">>> Global Execution Tree:");
+    executionTree.display();
+    System.out.println("--- last node in this execution :"+ currentNode.toString());
+
+    if (PathConstratint!=null) {
+        pathCounter++;
+        HashMap<String, VariableStatement> newInputs = PathConstraintSolve(PathConstratint, listOfInputs);
+        reset(newInputs);
+        if(pathCounter==32){
+          System.exit(0);
+        }
+        functionStatement.walk(this);
+    }else{
+      System.out.println("------------------------ Path Explore Completed : "+ pathCounter+" paths ----------------------");
+    }
   }
 
   /** <Visitor methods> End */
@@ -131,6 +176,23 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 /** ================= <Utilil Methods> ================= */
 
+  public void reset(HashMap<String,VariableStatement> newInputs) {
+    System.out.println("---------------------------- Exploring Path "+ pathCounter+"  ----------------------------");
+    System.out.println(">>> Path_Constraint: " + PathConstratint);
+    displayInputs();
+
+    /* initialization */
+    model = new Model("Choco Solver for Symbolic Path Constraint");
+    listOfVaribles = new HashMap<String,VariableStatement>();
+    listOfInputs = newInputs;
+    listOfVaribles = new HashMap<String,VariableStatement>();
+    for (String key : listOfInputs.keySet()) {
+       listOfVaribles.put(listOfInputs.get(key).getName(),listOfInputs.get(key));
+    }
+    PathConstratint= new LinkedList<ConstraintStatement>();
+    currentNode = executionTree.getRoot();
+  }
+
   public static boolean isInteger(String s) {
   try {
     Integer.parseInt(s);
@@ -142,6 +204,10 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   // only got here if we didn't return false
   return true;
 }
+
+  public void tp(String s){
+    System.out.println(s);
+  }
 
   public boolean isInput(VariableStatement v) {
     if(listOfInputs.get(v.getName())!=null){
@@ -174,6 +240,23 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     return getVarFromList(name);
   }
 
+  public void displayInputs(){
+    System.out.print(">>> Inputs: ");
+    for (String key : listOfInputs.keySet()) {
+      System.out.print("["+key+"="+listOfInputs.get(key).getValue()+"] ");
+    }
+    System.out.println("");
+  }
+
+  public void displayLocalVariable(){
+    System.out.print(">>> local_variables: ");
+    for (String key : listOfVaribles.keySet()) {
+      if(listOfInputs.get(key)==null) {
+        System.out.print(listOfVaribles.get(key).toString()+"  ");
+      }
+    }
+    System.out.println("");
+  }
 
 
   //this method transforms a "[var] = [number]" or "[var1] = [var2] + [number]" form assignment expression to a VariableStatement
@@ -262,7 +345,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
 
   /* Main Function for solving the Path Constraint and generate the new inputs */
-  public void PathConstraintSolve(LinkedList<ConstraintStatement> pc, HashMap<String,VariableStatement> map){
+  public HashMap<String,VariableStatement> PathConstraintSolve(LinkedList<ConstraintStatement> pc, HashMap<String,VariableStatement> map){
 
     HashMap<String,IntVar> SolverVarList = new HashMap<String,IntVar>();
     ListIterator<ConstraintStatement> listIterator = pc.listIterator();
@@ -270,15 +353,16 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
       constraintSolve(listIterator.next(),SolverVarList);
     }
 
-    System.out.println(model) ;
+   // System.out.println(model) ;
     model.getSolver().solve();
 
     /* replace the former inputs by the new inputs generated by Constraint Solver */
     for (String key : map.keySet()) {
-      if(SolverVarList.get(key)!=null){
+      if(SolverVarList.get(key)!=null&& map.get(key)!=null){
         map.get(key).setValue(SolverVarList.get(key).getValue());
       }
     }
+    return map;
   }
 
   private void constraintSolve(ConstraintStatement constraint,HashMap<String,IntVar> SolverVarList){
@@ -288,10 +372,10 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     String op1 = constraint.getOp1();
     String op2 = constraint.getOp2();
 
-    addConstraintsModel(var1, var2, var3, op1, op2);
+    addConstraintsModel(model, var1, var2, var3, op1, op2);
   }
 
-  private void addConstraintsModel(IntVar var1, IntVar var2 , IntVar var3, String op1, String op2){
+  private void addConstraintsModel(Model model,IntVar var1, IntVar var2 , IntVar var3, String op1, String op2){
     switch(op1){
       case "+" : model.arithm(var1, op1, var2, op2, var3).post(); break;
       case "-" : model.arithm(var1, op1, var2, op2, var3).post(); break;
@@ -334,12 +418,12 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
           String[] tokens = v.getSymb().toString().split("[ ]");
           if (tokens.length == 1) {
             IntVar var1 = evalVar(getVarFromList(tokens[0]), SolverVarList);
-            addConstraintsModel(var1, evalVar(new VariableStatement(0),SolverVarList), var,"+" , "=");  // VAR1 + 0 = VAR2
+            addConstraintsModel(model,var1, evalVar(new VariableStatement(0),SolverVarList), var,"+" , "=");  // VAR1 + 0 = VAR2
 
           }else if (tokens.length == 3){
             IntVar var1 = evalVar(getVarFromList(tokens[0]), SolverVarList);
             IntVar var2 = evalVar(getVarFromList(tokens[2]), SolverVarList);
-            addConstraintsModel(var1, var2, var, tokens[1], "=");
+            addConstraintsModel(model, var1, var2, var, tokens[1], "=");
 
           }else{
             System.out.println(">>>>>> Error: SymbExpr fomat unsupported <<<<<<<");
@@ -354,13 +438,53 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     return var;
   }
 
+  private LinkedList<ConstraintStatement> evalPath(ExecutionNode node){
+    LinkedList<ConstraintStatement> pathConstratints= new LinkedList<ConstraintStatement>();
+    ExecutionNode lastNodeUndo = node.tillUndo(node);
+    if (lastNodeUndo == null){
+      return null;
+    }
+
+    if(!lastNodeUndo.TrueDone()) {
+      lastNodeUndo.addToConstraintList(pathConstratints,true);
+    }else if (!lastNodeUndo.FalseDone()) {
+     lastNodeUndo.addToConstraintList(pathConstratints,false);
+    }
+
+    return pathConstratints;
+  }
+  private ExecutionNode generateNode (ConstraintStatement constraint){
+    ExecutionNode res = this.currentNode;
+    ExecutionNode newNode = new ExecutionNode(constraint);
+    if(executionTree.getRoot()==null){
+      executionTree.setRoot(newNode);
+      res = executionTree.getRoot();
+    }else if(constraint.toString().equals(res.getCondition().toString())){
+      res.setCondition(constraint);
+    }
+    else if(res.add(newNode,flag)) {
+      res = newNode;
+    }else{
+      if(flag==1){
+        res=res.getTrueBranch();
+      }else{
+        res=res.getFalseBranch();
+      }
+    }
+
+    return res;
+  }
+
+
+
+
   /** <Utilil Methods> End */
 
 
 
 
 /* ================= <Constraint Solver Methods> =================*/
-  public void solverExample(){
+  public void solverExample(HashMap<String,VariableStatement> listOfInputs){
 
       Model model = new Model("Choco Solver Hello World");
 
@@ -504,11 +628,308 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     public String toString (){
       return "<"+var1.getName()+op1+var2.getName()+op2+var3.getName()+">";
     }
-}
+
+    public boolean isTrue(){
+      String str = " Judge the condition "+ this.toString();
+      Model m  = new Model(str);
+      VariableStatement variable1 = getVarFromList(var1.getName());
+      VariableStatement variable2 = getVarFromList(var2.getName());
+      VariableStatement variable3 = getVarFromList(var3.getName());
+      IntVar v1 = m.intVar(variable1.getName(),variable1.getValue(),variable1.getValue());
+      IntVar v2 = m.intVar(variable2.getName(),variable2.getValue(),variable2.getValue());
+      IntVar v3 = m.intVar(variable3.getName(),variable3.getValue(),variable3.getValue());
+      String o1 = op1;
+      String o2 = op2;
+      addConstraintsModel(m,v1,v2,v3,o1,o2);
+      Solver solver = m.getSolver();
+
+      solver.solve();
+      ESat satisfaction = solver.isSatisfied();
+
+      switch(satisfaction){
+        case TRUE:    //System.out.println( this.toString()+" is True ");
+                        return true;
+        case FALSE:   //System.out.println( this.toString()+" is False ");
+                        return false;
+        case UNDEFINED: System.out.println(">>>>> ERROR:" + this.toString()+" is UNDEFINED condition <<<<<< "); System.exit(0); break;
+      }
+
+      System.out.println(m);
+      return false;
+    }
+
+    public ConstraintStatement inverse(){
+      ConstraintStatement res = new ConstraintStatement(var1,var2,var3,op1,op2);
+      switch(op2){
+        case "=" : res.op2 = "!="; break;
+        case "!=" :res.op2 = "=" ; break;
+        case ">" : res.op2 = "<="; break;
+        case "<" : res.op2 = ">="; break;
+        case "<=" : res.op2 =">"; break;
+        case ">=" : res.op2="<"; break;
+        default : System.out.println("ERROR : inverse condition unsupported: "+ op2 ); System.exit(0); break;
+      }
+      return res;
+    }
+
+  }
 /** <Sub class ConstraintStatement> End */
 
 
+  /** ================= <Sub class ExecutionTree> ================= */
 
+
+  private class ExecutionNode {
+    private ConstraintStatement myCondition;
+    private ExecutionNode TrueBranch;
+    private ExecutionNode FalseBranch;
+    private ExecutionNode FatherNode;
+    public boolean BoolFromFather;
+    public boolean TrueIsDone;
+    public boolean FalseIsDone;
+
+    private ExecutionNode(ConstraintStatement aCondition){
+      myCondition = aCondition;
+      TrueIsDone = false;
+      FalseIsDone = false;
+      TrueBranch = null;
+      FalseBranch = null;
+      FatherNode = null;
+      BoolFromFather=false;
+    }
+
+    public void setCondition(ConstraintStatement aCondition) {
+      myCondition = aCondition;
+    }
+    public ConstraintStatement getCondition() {
+      return myCondition;
+    }
+
+    public void setTrueBranch(ExecutionNode left) {
+      this.TrueBranch = left;
+    }
+    public void setFalseBranch(ExecutionNode right ) {
+      this.FalseBranch = right;
+    }
+    public ExecutionNode getTrueBranch() {
+      return TrueBranch;
+    }
+    public ExecutionNode getFalseBranch() {
+      return FalseBranch;
+    }
+    public void setTrueDone(boolean done){
+      TrueIsDone = done;
+    }
+    public void setFalseDone(boolean done){
+      FalseIsDone = done;
+    }
+    public boolean  TrueDone() {
+      return TrueIsDone;
+    }
+    public boolean FalseDone() {
+      return FalseIsDone;
+    }
+
+    public ExecutionNode getFather() {
+      if (this.FatherNode==null){
+        return null;
+      }
+      return FatherNode;
+    }
+
+
+    public boolean add(ExecutionNode node, int flag ) {
+
+        if (flag==1){
+          if(this.getTrueBranch()!=null){
+            return false;
+          }else {
+            node.FatherNode = this;
+            setTrueBranch(node);
+            node.BoolFromFather = true;
+          }
+        }else if(flag==0) {
+          if (this.getFalseBranch() != null) {
+            return false;
+          } else {
+            node.FatherNode = this;
+            setFalseBranch(node);
+            node.BoolFromFather = false;
+          }
+        }
+        return true;
+    }
+
+    public ExecutionNode tillUndo(ExecutionNode node) {
+      setPathDone();
+      if((node.TrueDone())&&(node.FalseDone())){
+
+        if (node.FatherNode==null){
+          return null;
+        }else {
+          if (node.BoolFromFather) {
+            node.FatherNode.setTrueDone(true);
+          } else {
+            node.FatherNode.setFalseDone(true);
+          }
+          return tillUndo(node.FatherNode);
+        }
+
+      }
+      return node;
+    }
+
+    public void setPathDone(){
+      if(this.getCondition().isTrue()){
+        this.setTrueDone(true);
+      }else{
+        this.setFalseDone(true);
+      }
+      if((this.TrueDone())&&(this.FalseDone())){
+        setFatherDone();
+      }
+    }
+
+    public void setFatherDone(){
+        if(this.getFather()!=null){
+          if(this.BoolFromFather){
+              this.getFather().setTrueDone(true);
+          }else{
+              this.getFather().setTrueDone(false);
+          }
+        }
+    }
+
+    public void addToConstraintList(LinkedList<ConstraintStatement> list, boolean flag){
+      if(this==null){
+
+      }else {
+        if (flag) {
+          list.add(this.getCondition());
+        } else {
+          list.add(this.getCondition().inverse());
+        }
+
+        if(this.getFather()!=null) {
+          this.getFather().addToConstraintList(list, BoolFromFather);
+        }
+      }
+    }
+
+    @Override
+    public String toString(){
+      if(this.FatherNode==null){
+        return (myCondition.toString());
+      }
+      String s =this.myCondition.toString() + " : " +BoolFromFather + " Branch of :" + FatherNode.getCondition().toString();
+      return s;
+    }
+  }
+
+  private class ExecutionTree {
+    private ExecutionNode root;
+
+    public void ExecutionTree() {
+      root = null;
+    }
+    public ExecutionNode getRoot() {
+      return root;
+    }
+
+    public void setRoot(ExecutionNode node) {
+      root = node;
+    }
+
+
+      public  void display() {
+        int maxLevel = maxLevel(root);
+
+        printNodeInternal(Collections.singletonList(root), 1, maxLevel);
+      }
+
+      private  void printNodeInternal(List<ExecutionNode> nodes, int level, int maxLevel) {
+        if (nodes.isEmpty() || isAllElementsNull(nodes))
+          return;
+
+        int floor = maxLevel - level;
+        int endgeLines = (int) Math.pow(2, (Math.max(floor - 1, 0)));
+        int firstSpaces = (int) Math.pow(2, (floor)) - 1;
+        int betweenSpaces = (int) Math.pow(2, (floor + 1)) - 1;
+
+        printWhitespaces(firstSpaces);
+
+        List<ExecutionNode> newNodes = new ArrayList<ExecutionNode>();
+        for (ExecutionNode node : nodes) {
+          if (node != null) {
+            if(node.TrueIsDone){System.out.print("[1]");}else{System.out.print("[0]");}
+            System.out.print(node.getCondition());
+            if(node.FalseDone()){System.out.print("[1]");}else{System.out.print("[0]");}
+            newNodes.add(node.getTrueBranch());
+            newNodes.add(node.getFalseBranch());
+          } else {
+            newNodes.add(null);
+            newNodes.add(null);
+            System.out.print(" ");
+          }
+
+          printWhitespaces(betweenSpaces);
+        }
+        System.out.println("");
+
+        for (int i = 1; i <= endgeLines; i++) {
+          for (int j = 0; j < nodes.size(); j++) {
+           printWhitespaces(firstSpaces - i);
+            if (nodes.get(j) == null) {
+              printWhitespaces(endgeLines + endgeLines + i + 1);
+              continue;
+            }
+
+            if (nodes.get(j).getTrueBranch() != null)
+              System.out.print("/");
+            else
+              printWhitespaces(1);
+
+            printWhitespaces(i + i - 1);
+
+            if (nodes.get(j).getFalseBranch() != null)
+              System.out.print("\\");
+            else
+              printWhitespaces(1);
+
+            printWhitespaces(endgeLines + endgeLines - i);
+          }
+
+          System.out.println("");
+        }
+
+        printNodeInternal(newNodes, level + 1, maxLevel);
+      }
+
+      private  void printWhitespaces(int count) {
+        for (int i = 0; i < count; i++)
+          System.out.print(" ");
+      }
+
+      private  int maxLevel(ExecutionNode node) {
+        if (node == null)
+          return 0;
+
+        return Math.max(maxLevel(node.TrueBranch), maxLevel(node.FalseBranch)) + 1;
+      }
+
+      private  <T> boolean isAllElementsNull(List<T> list) {
+        for (Object object : list) {
+          if (object != null)
+            return false;
+        }
+
+        return true;
+      }
+
+
+
+  }
+  /** <Sub class ExecutionTree> End */
 
 
 
