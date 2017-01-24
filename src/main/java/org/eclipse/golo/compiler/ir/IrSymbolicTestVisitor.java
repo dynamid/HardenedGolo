@@ -45,6 +45,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
 
   private int flag;
   private int pathCounter;
+  private int conditionCounter;
   private String fileName;
   private ArrayList<String> outputCode = new ArrayList<>();
   private final int EXPLORE_MAX = 200; //this value can be changed or removed ! !
@@ -59,6 +60,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     executionTree = new ExecutionTree();
     currentNode = executionTree.getRoot();
     pathCounter=1;
+    conditionCounter=0;
     System.out.println(">>> Symbolic Testing Visitor Created. " );
   }
 
@@ -134,6 +136,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         conditionalBranching.getFalseBlock().accept(this);
       }
     }
+    conditionCounter++;
 
   }
 
@@ -145,6 +148,10 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   @Override
   public void visitReturnStatement(ReturnStatement returnStatement) {
     // System.out.println(">>>ReturnStatement: " + returnStatement.toString());
+    if(conditionCounter==0){
+      System.out.println(">>> No conditional branching found: you can explore SINGLE path using any input value.");
+      System.exit(0);
+    }
     returnStatement.walk(this);
     displayLocalVariable();
     updateTestFile();
@@ -155,24 +162,31 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     System.out.println(">>> last node in this execution :"+ currentNode.toString());
 
     if (PathConstratint!=null) {
-        pathCounter++;
+
         HashMap<String, VariableStatement> newInputs = PathConstraintSolve(PathConstratint, listOfInputs);
 
       /* if current constraint can't be solved, setDone this path and jump to UnDo Node */
-        while (newInputs==null){
-          pathCounter++;
+        if (newInputs==null){
           unsatisfiable_Path_List.add(PathConstratint);
+        }
+        while (newInputs==null){
           currentNode.setDone();
           currentNode.setPathDone();
+          if((currentNode.TrueDone())&&(currentNode.FalseDone())&&currentNode.getFather()!=null){
+            currentNode = currentNode.getFather();
+          }
+
           PathConstratint = evalPath(currentNode);
           if (PathConstratint==null) {
             executionTree.display();
             finishExplore();
           }
           newInputs = PathConstraintSolve(PathConstratint, listOfInputs);
+          //executionTree.display();
         }
 
         /* Restart the new Explore */
+        pathCounter++;
         reset(newInputs);
         if(pathCounter >= EXPLORE_MAX){
           System.out.println("MAX EXPLORE NUMBER REACHED ;"+pathCounter);
@@ -447,8 +461,8 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   }
 
   private void finishExplore() {
-    System.out.println("------------------------ Symbolic Execution Completed ----------------------");
-    System.out.println(">>> Total Path : "+ pathCounter);
+    System.out.println("------------------------ Path Discovery Completed ----------------------");
+    System.out.println(">>> Total Path : "+ (pathCounter+ unsatisfiable_Path_List.size()));
     System.out.println(">>> Unsatisfiable : "+ unsatisfiable_Path_List.size());
     for (LinkedList<ConstraintStatement> anUnsatisfiable_Path_List : unsatisfiable_Path_List) {
       System.out.print(anUnsatisfiable_Path_List + "  ");
@@ -456,7 +470,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
     if(unsatisfiable_Path_List.size()>0){
       System.out.println();
     }
-    System.out.println(">>> Test the : "+ (pathCounter-unsatisfiable_Path_List.size())+" satisfiable paths: Execute the output files " +fileName  );
+    System.out.println(">>> Test the "+ pathCounter+" satisfiable paths: Execute the output files " +fileName  );
 
     outputTestFile();
     System.exit(0);
@@ -508,7 +522,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   }
 
   private void initTestFile(){
-    outputCode.add ( "module "+ functionStatement.getName()+"\n");
+    outputCode.add ( "module test_"+ functionStatement.getName()+"\n");
     outputCode.add ( "import "+ moduleStatement.getPackageAndClass()+"\n");
     outputCode.add ( "function main = |args| {\n");
   }
@@ -546,7 +560,8 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   }
 
 
-  /* public void solverExample(HashMap<String,VariableStatement> listOfInputs){
+
+  /* public void solverExample(){
 
       Model model = new Model("Choco Solver Hello World");
 
