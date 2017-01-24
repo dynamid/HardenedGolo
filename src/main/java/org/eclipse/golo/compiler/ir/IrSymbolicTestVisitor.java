@@ -189,7 +189,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
         pathCounter++;
         reset(newInputs);
         if(pathCounter >= EXPLORE_MAX){
-          System.out.println("MAX EXPLORE NUMBER REACHED ;"+pathCounter);
+          System.out.println("MAX EXPLORE NUMBER REACHED :"+pathCounter);
           System.exit(0);
         }
         functionStatement.walk(this);
