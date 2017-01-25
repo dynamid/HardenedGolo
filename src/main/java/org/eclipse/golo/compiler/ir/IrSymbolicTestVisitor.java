@@ -549,7 +549,7 @@ public class IrSymbolicTestVisitor implements GoloIrVisitor {
   }
 
   private void outputTestFile(){
-    String s= "  println(\">>> "+pathCounter+"  Test Completed.\")\n";
+    String s= "  println(\">>> "+pathCounter+" Test Completed.\")\n";
     outputCode.add (s);
     outputCode.add ( "}");
     try {
