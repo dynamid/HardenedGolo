@@ -281,19 +281,13 @@ public class GoloCompiler {
 
 
   /**
-   * Checks that the source code is minimally sound by converting a parse tree to an intermediate representation, and
-   * running a few classic visitors over it. Then generate WhyML code for verification.
-   *
+   * Gnerate a output golo file with sstisfiable inputs for all path
    * @param compilationUnit the source parse tree.
-   * @param destFile the destination WhyML file.
    * @return the intermediate representation of the source.
    * @throws GoloCompilationException if an error exists in the source represented by the input parse tree.
    */
-  public final GoloModule symtest(ASTCompilationUnit compilationUnit, String absolutePath, String destFile) throws IOException{
+  public final GoloModule symtest(ASTCompilationUnit compilationUnit) throws IOException{
     GoloModule goloModule = check(compilationUnit);
-    int[] charsPerLine = countCharsPerLine(absolutePath);
-
-    destFile = "symtest.res";
 
     goloModule.accept(new IrSymbolicTestVisitor());
 

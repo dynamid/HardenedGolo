@@ -15,14 +15,11 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 
-@Parameters(commandNames = {"symtest"}, commandDescription = "Generates WhyML program from Golo source file")
+@Parameters(commandNames = {"symtest"}, commandDescription = "Generates Symbolic Testing File")
 public class SymbolicTestCommand implements CliCommand{
 
   @Parameter(names = "--files", variableArity = true, description = "Golo source files (*.golo and directories)", required = true)
   List<String> files = new LinkedList<>();
-
-  @Parameter(names = {"-o"}, description = "WHYML output file. If one already exists, it will be overwritten")
-  String destFile;
 
   @Parameter(names = {"--exit"}, description = "Exit on the first encountered error, or continue with the next file")
   boolean exit = false;
@@ -30,24 +27,21 @@ public class SymbolicTestCommand implements CliCommand{
   @Parameter(names = {"--verbose"}, description = "Be more verbose")
   boolean verbose = false;
 
-  @Parameter(names = {"--int32"}, description = "Consider bounded integers on 32bits")
-  boolean int32 = false;
-
 
   @Override
   public void execute() throws Throwable {
     GoloCompiler compiler = new GoloCompiler();
     for (String file : files) {
-      symtest(new File(file), compiler, destFile);
+      symtest(new File(file), compiler);
     }
   }
 
-  private void symtest(File file, GoloCompiler compiler, String destFile) {
+  private void symtest(File file, GoloCompiler compiler) {
     if (file.isDirectory()) {
       File[] directoryFiles = file.listFiles();
       if (directoryFiles != null) {
         for (File directoryFile : directoryFiles) {
-          symtest(directoryFile, compiler, destFile);
+          symtest(directoryFile, compiler);
         }
       }
     } else if (file.getName().endsWith(".golo")) {
@@ -56,7 +50,7 @@ public class SymbolicTestCommand implements CliCommand{
           System.out.println(">>> Testing file `" + file.getAbsolutePath() + "`");
         }
         compiler.resetExceptionBuilder();
-        compiler.symtest(compiler.parse(file.getAbsolutePath()), file.getAbsolutePath(), destFile);
+        compiler.symtest(compiler.parse(file.getAbsolutePath()));
       } catch (IOException e) {
         System.out.println("[error] " + file + " does not exist or could not be opened.");
       } catch (GoloCompilationException e) {
