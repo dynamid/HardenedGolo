@@ -281,7 +281,7 @@ public class GoloCompiler {
 
 
   /**
-   * Gnerate a output golo file with sstisfiable inputs for all path
+   * Gnerate a output golo file with satisfiable inputs for exploring all possible paths
    * @param compilationUnit the source parse tree.
    * @return the intermediate representation of the source.
    * @throws GoloCompilationException if an error exists in the source represented by the input parse tree.
