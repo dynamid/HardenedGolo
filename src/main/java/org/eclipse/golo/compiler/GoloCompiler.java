@@ -10,6 +10,7 @@
 package org.eclipse.golo.compiler;
 
 import org.eclipse.golo.compiler.ir.GoloModule;
+import org.eclipse.golo.compiler.ir.IrSymbolicTestVisitor;
 import org.eclipse.golo.compiler.ir.IrTreeVisitAndGenerate;
 import org.eclipse.golo.compiler.parser.ASTCompilationUnit;
 import org.eclipse.golo.compiler.parser.GoloOffsetParser;
@@ -276,5 +277,20 @@ public class GoloCompiler {
    */
   protected GoloParser createGoloParser(Reader sourceReader) {
     return new GoloOffsetParser(sourceReader);
+  }
+
+
+  /**
+   * Gnerate a output golo file with satisfiable inputs for exploring all possible paths
+   * @param compilationUnit the source parse tree.
+   * @return the intermediate representation of the source.
+   * @throws GoloCompilationException if an error exists in the source represented by the input parse tree.
+   */
+  public final GoloModule symtest(ASTCompilationUnit compilationUnit) throws IOException{
+    GoloModule goloModule = check(compilationUnit);
+
+    goloModule.accept(new IrSymbolicTestVisitor());
+
+    return goloModule;
   }
 }
