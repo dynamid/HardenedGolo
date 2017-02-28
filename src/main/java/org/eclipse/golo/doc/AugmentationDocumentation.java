@@ -26,32 +26,80 @@ class AugmentationDocumentation extends AbstractSet<FunctionDocumentation> imple
   private String target;
   private String documentation;
   private int line;
+  private DocumentationElement parent;
   private SortedSet<FunctionDocumentation> functions = new TreeSet<>();
   private List<String> augmentationNames = new LinkedList<>();
 
-  public String target() { return target; }
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String type() {
+    return "augmentation";
+  }
 
-  public AugmentationDocumentation target(String target){
+  public String target() {
+    return target;
+  }
+
+  public AugmentationDocumentation target(String target) {
     this.target = target;
     return this;
   }
 
-  public String name() { return target(); }
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String name() {
+    return target();
+  }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String id() {
+    return "augment." + name();
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public DocumentationElement parent() {
+    return parent;
+  }
+
+  public AugmentationDocumentation parent(DocumentationElement p) {
+    parent = p;
+    return this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
   public String documentation() {
     return (documentation != null) ? documentation : "\n";
   }
 
-  public AugmentationDocumentation documentation(String documentation){
+  public AugmentationDocumentation documentation(String documentation) {
     if (documentation != null) {
       this.documentation = documentation;
     }
     return this;
   }
 
-  public int line() { return line; }
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public int line() {
+    return line;
+  }
 
-  public AugmentationDocumentation line(int line){
+  public AugmentationDocumentation line(int line) {
     this.line = line;
     return this;
   }

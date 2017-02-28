@@ -17,32 +17,78 @@ import java.util.TreeSet;
 
 import static java.util.Collections.unmodifiableSet;
 
-class NamedAugmentationDocumentation extends AbstractSet<FunctionDocumentation> implements Comparable<NamedAugmentationDocumentation>, DocumentationElement {
+class NamedAugmentationDocumentation extends AbstractSet<FunctionDocumentation> implements DocumentationElement {
 
   private String name;
   private String documentation;
   private int line;
+  private DocumentationElement parent;
   private Set<FunctionDocumentation> functions = new TreeSet<>();
 
-  public String name() { return name; }
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String type() {
+    return "named augmentation";
+  }
 
-  public NamedAugmentationDocumentation name(String name){
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String name() {
+    return name;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String label() {
+    return name;
+  }
+
+  public NamedAugmentationDocumentation name(String name) {
     this.name = name;
     return this;
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public DocumentationElement parent() {
+    return parent;
+  }
+
+  public NamedAugmentationDocumentation parent(DocumentationElement p) {
+    parent = p;
+    return this;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
   public String documentation() {
     return (documentation != null ? documentation : "");
   }
 
-  public NamedAugmentationDocumentation documentation(String documentation){
+  public NamedAugmentationDocumentation documentation(String documentation) {
     this.documentation = documentation;
     return this;
   }
 
-  public int line() { return line; }
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public int line() {
+    return line;
+  }
 
-  public NamedAugmentationDocumentation line(int line){
+  public NamedAugmentationDocumentation line(int line) {
     this.line = line;
     return this;
   }
@@ -67,9 +113,5 @@ class NamedAugmentationDocumentation extends AbstractSet<FunctionDocumentation> 
   @Override
   public Iterator<FunctionDocumentation> iterator() { return functions.iterator(); }
 
-  @Override
-  public int compareTo(NamedAugmentationDocumentation o) {
-    return name().compareTo(o.name());
-  }
 }
 

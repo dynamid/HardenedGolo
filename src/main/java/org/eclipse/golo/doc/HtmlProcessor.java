@@ -14,9 +14,9 @@ import gololang.FunctionReference;
 import gololang.Predefined;
 
 import java.nio.file.Path;
-import java.util.TreeMap;
 import java.util.Map;
 import java.util.List;
+
 
 import com.github.rjeschke.txtmark.BlockEmitter;
 import com.github.rjeschke.txtmark.Configuration;
@@ -25,27 +25,70 @@ import com.github.rjeschke.txtmark.Processor;
 
 public class HtmlProcessor extends AbstractProcessor {
 
+  private Path srcFile;
+  private final DocIndex globalIndex = new DocIndex();
+
+  @Override
+  protected String fileExtension() {
+    return "html";
+  }
+
+  public DocIndex globalIndex() {
+    return globalIndex;
+  }
+
+  /**
+   * Returns the direct link to the given documentation element from a given filename.
+   */
+  public String linkToDoc(String src, DocumentationElement dst) {
+    Path out = outputFile(src);
+    if (out.getParent() != null) {
+      out = out.getParent();
+    }
+    return out.relativize(docFile(dst)).toString()
+      + (dst.id().isEmpty() ? "" : ("#" + dst.id()));
+  }
+
   @Override
   public String render(ASTCompilationUnit compilationUnit) throws Throwable {
-    FunctionReference template = template("template", "html");
+    FunctionReference template = template("template", fileExtension());
     ModuleDocumentation documentation = new ModuleDocumentation(compilationUnit);
-    return (String) template.handle().invokeWithArguments(documentation);
+    globalIndex.update(documentation);
+    addModule(documentation);
+    Path doc = docFile(documentation);
+    if (doc.getParent() != null) {
+      doc = doc.getParent();
+    }
+    return (String) template.invoke(this, documentation, doc.relativize(srcFile));
   }
 
   @Override
   public void process(Map<String, ASTCompilationUnit> units, Path targetFolder) throws Throwable {
-    TreeMap<String, String> moduleDocFile = new TreeMap<>();
-    ensureFolderExists(targetFolder);
-    for (ASTCompilationUnit unit : units.values()) {
-      String moduleName = moduleName(unit);
-      Path docFile = outputFile(targetFolder, moduleName, ".html");
-      ensureFolderExists(docFile.getParent());
-      Predefined.textToFile(render(unit), docFile);
-      moduleDocFile.put(moduleName, targetFolder.relativize(docFile).toString());
+    setTargetFolder(targetFolder);
+    for (Map.Entry<String, ASTCompilationUnit> unit : units.entrySet()) {
+      renderModule(unit.getKey(), unit.getValue());
     }
-    FunctionReference indexTemplate = template("index", "html");
-    String index = (String) indexTemplate.handle().invokeWithArguments(moduleDocFile);
-    Predefined.textToFile(index, targetFolder.resolve("index.html"));
+    renderIndex("index");
+    renderIndex("index-all");
+  }
+
+  private void renderModule(String sourceFile, ASTCompilationUnit unit) throws Throwable {
+    String moduleName = moduleName(unit);
+    srcFile = outputFile(moduleName + "-src");
+    Predefined.textToFile(renderSource(moduleName, sourceFile), srcFile);
+    Predefined.textToFile(render(unit), outputFile(moduleName));
+  }
+
+  private String renderSource(String moduleName, String filename) throws Throwable {
+    FunctionReference template = template("src", fileExtension());
+    String content = (String) Predefined.fileToText(filename, "UTF-8");
+    int nbLines = 0;
+    for (int i = 0; i < content.length(); i++) {
+      if (content.charAt(i) == '\n') {
+        nbLines++;
+      }
+    }
+    return (String) template.invoke(moduleName, content, nbLines);
   }
 
   public static BlockEmitter blockHighlighter() {
@@ -74,8 +117,20 @@ public class HtmlProcessor extends AbstractProcessor {
     };
   }
 
+  public static String sectionTitle(int level, DocumentationElement doc, Path src) {
+    String permalink = String.format("<a class=\"permalink\" href=\"#%s\" title=\"link to this section\">&#182;</a>",
+        doc.id());
+    String srclink = src == null ? ""
+      : String.format("<nav class=\"srclink\"><a href=\"%s#l-%s\" rel=\"source\" title=\"Link to the corresponding source\">Source</a></nav>",
+          src, doc.line());
+    return String.format("<h%s id=\"%s\">%s%s</h%s>%s", level, doc.id(), doc.label(), permalink, level, srclink);
+  }
+
+  public static String tocItem(DocumentationElement doc) {
+    return String.format("<a href=\"#%s\">%s</a>", doc.id(), doc.label());
+  }
+
   public static String process(String documentation, int rootLevel, Configuration configuration) {
     return Processor.process(AbstractProcessor.adaptSections(documentation, rootLevel), configuration);
   }
-
 }

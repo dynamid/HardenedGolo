@@ -9,21 +9,47 @@
 
 package org.eclipse.golo.doc;
 
-import java.util.Set;
-import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.LinkedList;
 import java.util.Collection;
-import static java.util.Collections.unmodifiableSet;
+import static java.util.Collections.unmodifiableList;
 
-class UnionDocumentation implements Comparable<UnionDocumentation>, DocumentationElement {
+class UnionDocumentation implements DocumentationElement {
 
-  public static final class UnionValueDocumentation implements DocumentationElement {
+  public static final class UnionValueDocumentation implements DocumentationElement, MemberHolder {
     private String name;
     private String documentation;
     private int line;
-    private Set<String> members = new LinkedHashSet<>();
+    private List<MemberDocumentation> members = new LinkedList<>();
+    private DocumentationElement parent;
+
+    public String type() {
+      return "union value";
+    }
 
     public String name() {
       return name;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String fullName() {
+      return parent.fullName() + '$' + name;
+    }
+
+    public String label() {
+      return name;
+    }
+
+    public DocumentationElement parent() {
+      return parent;
+    }
+
+    public UnionValueDocumentation parent(DocumentationElement p) {
+      parent = p;
+      return this;
     }
 
     public UnionValueDocumentation name(String n) {
@@ -49,24 +75,31 @@ class UnionDocumentation implements Comparable<UnionDocumentation>, Documentatio
       return this;
     }
 
-    public Set<String> members() {
-      return unmodifiableSet(members);
+    public List<MemberDocumentation> members() {
+      return unmodifiableList(members);
     }
 
-    public UnionValueDocumentation members(Collection<String> m) {
+    public UnionValueDocumentation members(Collection<MemberDocumentation> m) {
       members.addAll(m);
       return this;
     }
 
-    public boolean hasMembers() {
-      return !members.isEmpty();
+    public MemberDocumentation addMember(String name) {
+      MemberDocumentation doc = new MemberDocumentation().name(name);
+      members.add(doc);
+      return doc;
     }
   }
 
   private String name;
   private String documentation;
   private int line;
-  private Set<UnionValueDocumentation> values = new LinkedHashSet<>();
+  private List<UnionValueDocumentation> values = new LinkedList<>();
+  private DocumentationElement parent;
+
+  public String type() {
+    return "union";
+  }
 
   public String name() {
     return name;
@@ -74,6 +107,15 @@ class UnionDocumentation implements Comparable<UnionDocumentation>, Documentatio
 
   public UnionDocumentation name(String name) {
     this.name = name;
+    return this;
+  }
+
+  public DocumentationElement parent() {
+    return parent;
+  }
+
+  public UnionDocumentation parent(DocumentationElement p) {
+    parent = p;
     return this;
   }
 
@@ -95,8 +137,8 @@ class UnionDocumentation implements Comparable<UnionDocumentation>, Documentatio
     return this;
   }
 
-  public Set<UnionValueDocumentation> values() {
-    return unmodifiableSet(values);
+  public List<UnionValueDocumentation> values() {
+    return unmodifiableList(values);
   }
 
   public UnionDocumentation values(Collection<UnionValueDocumentation> v) {
@@ -110,14 +152,10 @@ class UnionDocumentation implements Comparable<UnionDocumentation>, Documentatio
 
   public UnionValueDocumentation addValue(String name) {
     UnionValueDocumentation v = new UnionValueDocumentation();
+    v.parent(this);
     v.name(name);
     values.add(v);
     return v;
-  }
-
-  @Override
-  public int compareTo(UnionDocumentation o) {
-    return name.compareTo(o.name());
   }
 
   @Override

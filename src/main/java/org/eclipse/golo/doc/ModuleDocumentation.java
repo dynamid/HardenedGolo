@@ -9,24 +9,9 @@
 
 package org.eclipse.golo.doc;
 
-import org.eclipse.golo.compiler.utils.AbstractRegister;
 import org.eclipse.golo.compiler.parser.*;
 
 import java.util.*;
-
-class FunctionDocumentationsRegister extends AbstractRegister<String, FunctionDocumentation> {
-  private static final long serialVersionUID = 1L;
-
-  @Override
-  protected Set<FunctionDocumentation> emptyValue() {
-    return new TreeSet<>();
-  }
-
-  @Override
-  protected Map<String, Set<FunctionDocumentation>> initMap() {
-    return new TreeMap<>();
-  }
-}
 
 class ModuleDocumentation implements DocumentationElement {
 
@@ -42,8 +27,20 @@ class ModuleDocumentation implements DocumentationElement {
   private final SortedSet<UnionDocumentation> unions = new TreeSet<>();
   private final Set<NamedAugmentationDocumentation> namedAugmentations = new TreeSet<>();
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String type() {
+    return "module";
+  }
+
   ModuleDocumentation(ASTCompilationUnit compilationUnit) {
     new ModuleVisitor().visit(compilationUnit, null);
+  }
+
+  public String goloVersion() {
+    return org.eclipse.golo.cli.command.Metadata.VERSION;
   }
 
   public SortedSet<StructDocumentation> structs() {
@@ -75,14 +72,46 @@ class ModuleDocumentation implements DocumentationElement {
     return moduleName;
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
   public String name() {
     return moduleName;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String fullName() {
+    return moduleName;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String id() {
+    return "";
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public DocumentationElement parent() {
+    return this;
   }
 
   public int moduleDefLine() {
     return moduleDefLine;
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
   public int line() {
     return moduleDefLine;
   }
@@ -116,6 +145,8 @@ class ModuleDocumentation implements DocumentationElement {
     private Deque<Set<FunctionDocumentation>> functionContext = new LinkedList<>();
     private FunctionDocumentation currentFunction = null;
     private UnionDocumentation currentUnion;
+    private MemberHolder currentMemberHolder;
+    private Deque<DocumentationElement> parents = new LinkedList<>();
 
     @Override
     public Object visit(ASTCompilationUnit node, Object data) {
@@ -129,6 +160,7 @@ class ModuleDocumentation implements DocumentationElement {
       moduleName = node.getName();
       moduleDefLine = node.getLineInSourceCode();
       moduleDocumentation = node.getDocumentation();
+      parents.push(ModuleDocumentation.this);
       return data;
     }
 
@@ -145,33 +177,56 @@ class ModuleDocumentation implements DocumentationElement {
     }
 
     @Override
+    public Object visit(ASTMemberDeclaration node, Object data) {
+      currentMemberHolder.addMember(node.getName())
+        .parent(parents.peek())
+        .documentation(node.getDocumentation())
+        .line(node.getLineInSourceCode());
+      return data;
+    }
+
+    @Override
     public Object visit(ASTStructDeclaration node, Object data) {
-      structs.add(new StructDocumentation()
+      StructDocumentation doc = new StructDocumentation()
+              .parent(parents.peek())
               .name(node.getName())
               .documentation(node.getDocumentation())
-              .line(node.getLineInSourceCode())
-              .members(node.getMembers())
-      );
-      return data;
+              .line(node.getLineInSourceCode());
+      structs.add(doc);
+      currentMemberHolder = doc;
+      parents.push(doc);
+      Object result = node.childrenAccept(this, data);
+      parents.pop();
+      currentMemberHolder = null;
+      return result;
     }
 
     @Override
     public Object visit(ASTUnionDeclaration node, Object data) {
       this.currentUnion = new UnionDocumentation()
+          .parent(parents.peek())
           .name(node.getName())
           .documentation(node.getDocumentation())
           .line(node.getLineInSourceCode());
       unions.add(this.currentUnion);
-      return node.childrenAccept(this, data);
+      parents.push(currentUnion);
+      Object r = node.childrenAccept(this, data);
+      parents.pop();
+      return r;
     }
 
     @Override
     public Object visit(ASTUnionValue node, Object data) {
-      this.currentUnion.addValue(node.getName())
+      UnionDocumentation.UnionValueDocumentation doc = this.currentUnion.addValue(node.getName())
+          .parent(parents.peek())
           .documentation(node.getDocumentation())
-          .line(node.getLineInSourceCode())
-          .members(node.getMembers());
-      return data;
+          .line(node.getLineInSourceCode());
+      currentMemberHolder = doc;
+      parents.push(doc);
+      Object result = node.childrenAccept(this, data);
+      parents.pop();
+      currentMemberHolder = null;
+      return result;
     }
 
     @Override
@@ -188,32 +243,40 @@ class ModuleDocumentation implements DocumentationElement {
       if (!augmentations.containsKey(target)) {
         augmentations.put(target, new AugmentationDocumentation()
                 .target(target)
+                .parent(parents.peek())
                 .augmentationNames(node.getAugmentationNames())
                 .line(node.getLineInSourceCode())
         );
       }
-      functionContext.push(augmentations.get(target).documentation(node.getDocumentation()));
+      AugmentationDocumentation ad = augmentations.get(target).documentation(node.getDocumentation());
+      functionContext.push(ad);
+      parents.push(ad);
       node.childrenAccept(this, data);
       functionContext.pop();
+      parents.pop();
       return data;
     }
 
     @Override
     public Object visit(ASTNamedAugmentationDeclaration node, Object data) {
       NamedAugmentationDocumentation augment = new NamedAugmentationDocumentation()
+          .parent(parents.peek())
           .name(node.getName())
           .documentation(node.getDocumentation())
           .line(node.getLineInSourceCode());
       namedAugmentations.add(augment);
       functionContext.push(augment);
+      parents.push(augment);
       node.childrenAccept(this, data);
       functionContext.pop();
+      parents.pop();
       return data;
     }
 
     @Override
     public Object visit(ASTFunctionDeclaration node, Object data) {
       currentFunction = new FunctionDocumentation()
+          .parent(parents.peek())
           .name(node.getName())
           .documentation(node.getDocumentation())
           .augmentation(node.isAugmentation())
@@ -289,10 +352,14 @@ class ModuleDocumentation implements DocumentationElement {
     }
 
     @Override
-    public Object visit(ASTExpressionStatement node, Object data) { return data; }
+    public Object visit(ASTExpressionStatement node, Object data) {
+      return data;
+    }
 
     @Override
-    public Object visit(ASTInvocationExpression node, Object data) { return data; }
+    public Object visit(ASTInvocationExpression node, Object data) {
+      return data;
+    }
 
     @Override
     public Object visit(ASTMultiplicativeExpression node, Object data) {
